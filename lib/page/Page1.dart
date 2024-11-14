@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/NavigationHelper.dart';
+import 'package:traveltree/widgets/NavigationHelper.dart';
 
 class Page1 extends StatelessWidget {
   const Page1({super.key});
