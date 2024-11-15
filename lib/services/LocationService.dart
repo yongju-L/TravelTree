@@ -6,7 +6,6 @@ class LocationService {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _showEnableLocationDialog(context);
-
       return;
     }
 
@@ -24,6 +23,11 @@ class LocationService {
     }
   }
 
+  Future<Position> getCurrentPosition() async {
+    return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+  }
+
   void _showEnableLocationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -36,8 +40,8 @@ class LocationService {
             child: const Text('거부'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('허용'),
+            onPressed: () => Geolocator.openLocationSettings(),
+            child: const Text('설정으로 이동'),
           ),
         ],
       ),

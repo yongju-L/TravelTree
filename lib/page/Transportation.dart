@@ -5,11 +5,11 @@ class Transportation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Text(
               '이동수단 정보',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),

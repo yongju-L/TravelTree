@@ -8,18 +8,18 @@ class LocationTracking {
   Stream<Set<Polyline>> get polylinesStream => _polylinesController.stream;
 
   final List<LatLng> _pathCoordinates = [];
-  GoogleMapController? _mapController; // 지도 컨트롤러
+  GoogleMapController? _mapController;
 
-  CameraPosition initialPosition = const CameraPosition(
-    target: LatLng(37.7749, -122.4194), // 기본 위치
-    zoom: 12,
-  );
+  // 마지막 위치를 저장하는 변수
+  LatLng? _lastKnownPosition;
+
+  LatLng get currentPosition =>
+      _lastKnownPosition ?? const LatLng(0, 0); // 초기 값은 0,0 (빈 위치)
 
   void initializeTracking(void Function(GoogleMapController) onMapReady) {
     Geolocator.getPositionStream().listen((position) {
-      _addPath(LatLng(position.latitude, position.longitude));
+      addPath(LatLng(position.latitude, position.longitude));
 
-      // 위치 변경 시 지도의 카메라 업데이트
       if (_mapController != null) {
         _mapController?.animateCamera(
           CameraUpdate.newLatLng(
@@ -31,11 +31,12 @@ class LocationTracking {
   }
 
   void onMapCreated(GoogleMapController controller) {
-    _mapController = controller; // 컨트롤러 초기화
+    _mapController = controller;
   }
 
-  void _addPath(LatLng position) {
+  void addPath(LatLng position) {
     _pathCoordinates.add(position);
+    _lastKnownPosition = position; // 마지막 위치 업데이트
     _polylinesController.add({
       Polyline(
         polylineId: const PolylineId('path'),
