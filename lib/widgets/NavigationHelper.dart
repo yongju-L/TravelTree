@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:traveltree/page/MainPage.dart';
-import 'package:traveltree/page/Page1.dart';
+import 'package:traveltree/page/SubFeaturePage.dart';
 import 'package:traveltree/page/Page2.dart';
 import 'package:traveltree/page/Page3.dart';
 
@@ -11,7 +11,7 @@ void navigateToPage(BuildContext context, int index) {
       page = const MainPage();
       break;
     case 1:
-      page = const Page1();
+      page = const SubFeaturePage();
       break;
     case 2:
       page = const Page2();
