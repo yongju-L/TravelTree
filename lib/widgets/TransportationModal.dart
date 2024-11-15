@@ -5,8 +5,8 @@ void showTransportationModal(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    builder: (context) => const FractionallySizedBox(
-      heightFactor: 0.4,
+    builder: (context) => FractionallySizedBox(
+      heightFactor: 0.5,
       child: Transportation(),
     ),
   );

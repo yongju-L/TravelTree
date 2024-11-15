@@ -8,7 +8,6 @@ class LocationTracking {
   Stream<Set<Polyline>> get polylinesStream => _polylinesController.stream;
 
   final List<LatLng> _pathCoordinates = [];
-  GoogleMapController? _mapController;
 
   // 마지막 위치를 저장하는 변수
   LatLng? _lastKnownPosition;
@@ -19,20 +18,10 @@ class LocationTracking {
   void initializeTracking(void Function(GoogleMapController) onMapReady) {
     Geolocator.getPositionStream().listen((position) {
       addPath(LatLng(position.latitude, position.longitude));
-
-      if (_mapController != null) {
-        _mapController?.animateCamera(
-          CameraUpdate.newLatLng(
-            LatLng(position.latitude, position.longitude),
-          ),
-        );
-      }
     });
   }
 
-  void onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-  }
+  void onMapCreated(GoogleMapController controller) {}
 
   void addPath(LatLng position) {
     _pathCoordinates.add(position);
