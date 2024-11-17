@@ -29,7 +29,7 @@ class ScheduleManagementPage extends StatelessWidget {
         ],
       ),
       drawer: const AppDrawer(), // AppDrawer 사용
-      body: Center(child: const Text('일정관리 페이지 내용')),
+      body: const Center(child: Text('일정관리 페이지 내용')),
     );
   }
 }

@@ -6,6 +6,8 @@ import 'package:traveltree/services/SnapToRoadsService.dart';
 import 'package:traveltree/services/TransitService.dart';
 
 class Transportation extends StatefulWidget {
+  const Transportation({super.key});
+
   @override
   _TransportationState createState() => _TransportationState();
 }
@@ -24,7 +26,7 @@ class _TransportationState extends State<Transportation> {
     '지하철': 0,
   };
 
-  List<LatLng> _gpsData = []; // GPS 데이터를 저장할 리스트
+  final List<LatLng> _gpsData = []; // GPS 데이터를 저장할 리스트
 
   @override
   void initState() {

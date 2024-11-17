@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:traveltree/widgets/NavigationHelper.dart';
-import 'package:traveltree/page/ExpenseManagementPage.dart';
-import 'package:traveltree/page/ScheduleManagementPage.dart'; // 일정관리 페이지 임포트
+import 'package:traveltree/page/subfeaturepage/ExpenseManagementPage.dart';
+import 'package:traveltree/page/subfeaturepage/ScheduleManagementPage.dart'; // 일정관리 페이지 임포트
 
 class SubFeaturePage extends StatelessWidget {
   const SubFeaturePage({super.key});

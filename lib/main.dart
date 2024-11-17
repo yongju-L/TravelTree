@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/MainPage.dart';
+import 'package:traveltree/page/mainpage/MainPage.dart';
 import 'dart:async';
 
 void main() {

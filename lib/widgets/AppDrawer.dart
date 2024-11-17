@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/ExpenseManagementPage.dart';
-import 'package:traveltree/page/ScheduleManagementPage.dart';
+import 'package:traveltree/page/subfeaturepage/ExpenseManagementPage.dart';
+import 'package:traveltree/page/subfeaturepage/ScheduleManagementPage.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -11,11 +11,11 @@ class AppDrawer extends StatelessWidget {
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          DrawerHeader(
+          const DrawerHeader(
             decoration: BoxDecoration(
               color: Colors.deepPurple,
             ),
-            child: const Text(
+            child: Text(
               '메뉴',
               style: TextStyle(color: Colors.white, fontSize: 24),
             ),

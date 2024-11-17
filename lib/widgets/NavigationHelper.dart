@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/MainPage.dart';
-import 'package:traveltree/page/SubFeaturePage.dart';
+import 'package:traveltree/page/mainpage/MainPage.dart';
+import 'package:traveltree/page/subfeaturepage/SubFeaturePage.dart';
 import 'package:traveltree/page/Page2.dart';
 import 'package:traveltree/page/Page3.dart';
 
