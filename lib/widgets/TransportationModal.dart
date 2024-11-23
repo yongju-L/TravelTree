@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/mainpage/Transportation.dart';
+import 'package:traveltree/page/mainpage/TransportationPage.dart';
 
-void showTransportationModal(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => FractionallySizedBox(
-      heightFactor: 0.5,
-      child: Transportation(),
-    ),
-  );
+class TransportationModal {
+  static void showTransportationModal(
+      BuildContext context, Map<String, dynamic> transportationData) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) =>
+          TransportationPage(transportationData: transportationData),
+      backgroundColor: Colors.transparent,
+    );
+  }
 }

@@ -14,26 +14,30 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
-  GoogleMapController? _mapController;
   final LocationTracking _locationTracking = LocationTracking();
   final LocationService _locationService = LocationService();
 
-  bool _isLoading = true; // 로딩 상태 관리
-  bool _hasInitializedPosition = false; // 위치 초기화 상태 관리
+  bool _isLoading = true;
+  bool _hasInitializedPosition = false;
+
+  Map<String, dynamic> _transportationData = {
+    'Walking': {'distance': 0.0, 'duration': 0},
+    'Driving': {'distance': 0.0, 'duration': 0},
+    'Public Transport': {'distance': 0.0, 'duration': 0},
+  };
 
   @override
   void initState() {
     super.initState();
     _initializeLocation();
+    _locationTracking.onTransportUpdate = _updateTransportData;
   }
 
   Future<void> _initializeLocation() async {
     await _locationService.requestLocationPermission(context);
 
     _locationTracking.initializeTracking((controller) {
-      setState(() {
-        _mapController = controller;
-      });
+      setState(() {});
     });
 
     try {
@@ -41,13 +45,20 @@ class _MainPageState extends State<MainPage> {
       _locationTracking.addPath(LatLng(position.latitude, position.longitude));
 
       setState(() {
-        _isLoading = false; // 로딩 완료
-        _hasInitializedPosition = true; // 위치 초기화 완료
+        _isLoading = false;
+        _hasInitializedPosition = true;
       });
     } catch (error) {
       print("위치 가져오기 실패: $error");
       _showErrorDialog();
     }
+  }
+
+  void _updateTransportData(String mode, double distance, int duration) {
+    setState(() {
+      _transportationData[mode]!['distance'] += distance;
+      _transportationData[mode]!['duration'] += duration;
+    });
   }
 
   void _showErrorDialog() {
@@ -74,21 +85,22 @@ class _MainPageState extends State<MainPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.directions_car),
-            onPressed: () => showTransportationModal(context),
+            onPressed: () {
+              TransportationModal.showTransportationModal(
+                  context, _transportationData);
+            },
           ),
         ],
       ),
       body: _isLoading || !_hasInitializedPosition
           ? const Center(
-              child: CircularProgressIndicator(), // 로딩 스피너
+              child: CircularProgressIndicator(),
             )
           : StreamBuilder<Set<Polyline>>(
               stream: _locationTracking.polylinesStream,
               builder: (context, snapshot) {
                 return GoogleMap(
-                  onMapCreated: _mapController == null
-                      ? _locationTracking.onMapCreated
-                      : null,
+                  onMapCreated: _locationTracking.onMapCreated, // 수정된 부분
                   initialCameraPosition: CameraPosition(
                     target: _locationTracking.currentPosition,
                     zoom: 15,
