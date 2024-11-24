@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LocationTracking {
   final _polylinesController = StreamController<Set<Polyline>>.broadcast();
@@ -16,10 +18,13 @@ class LocationTracking {
 
   Function(String, double, int)? onTransportUpdate;
 
+  final String _apiKey = "YOUR_GOOGLE_MAPS_API_KEY"; // Google Maps API 키
+  LatLng? _lastCheckedPosition; // 마지막 도로 확인 위치
+
   void onMapCreated(GoogleMapController controller) {}
 
   void initializeTracking(void Function(GoogleMapController) onMapReady) {
-    Geolocator.getPositionStream().listen((position) {
+    Geolocator.getPositionStream().listen((position) async {
       if (_lastKnownPosition != null) {
         final currentLatLng = LatLng(position.latitude, position.longitude);
         final distance = Geolocator.distanceBetween(
@@ -33,7 +38,8 @@ class LocationTracking {
             ? now.difference(_lastTimestamp!).inSeconds
             : 0;
 
-        String mode = _determineTransportMode(distance, duration);
+        String mode =
+            await _determineTransportMode(currentLatLng, distance, duration);
         onTransportUpdate?.call(mode, distance / 1000, duration);
 
         _lastTimestamp = now;
@@ -45,15 +51,57 @@ class LocationTracking {
     });
   }
 
-  String _determineTransportMode(double distance, int duration) {
+  Future<String> _determineTransportMode(
+      LatLng currentLatLng, double distance, int duration) async {
     final speed = distance / (duration == 0 ? 1 : duration); // m/s
-    if (speed < 1.4) {
+
+    if (speed < 2.0) {
+      // 도보로 판단 (속도 2m/s 미만)
       return 'Walking';
-    } else if (speed < 6.0) {
-      return 'Public Transport';
-    } else {
+    }
+
+    if (speed > 50.0) {
+      // 50m/s 초과 시 Unknown 반환
+      return 'Unknown';
+    }
+
+    // Driving 여부 확인
+    final isOnRoad = await _isOnRoad(currentLatLng);
+    if (isOnRoad) {
       return 'Driving';
     }
+
+    // Driving이 아니면 Public Transport로 분류
+    return 'Public Transport';
+  }
+
+  Future<bool> _isOnRoad(LatLng latLng) async {
+    // 이전 확인된 위치와 가까우면 기존 결과를 사용
+    if (_lastCheckedPosition != null &&
+        Geolocator.distanceBetween(
+              _lastCheckedPosition!.latitude,
+              _lastCheckedPosition!.longitude,
+              latLng.latitude,
+              latLng.longitude,
+            ) <
+            50) {
+      return false; // 캐싱된 결과를 사용할 수도 있음
+    }
+
+    _lastCheckedPosition = latLng; // 새로운 위치 업데이트
+
+    final url =
+        "https://roads.googleapis.com/v1/nearestRoads?points=${latLng.latitude},${latLng.longitude}&key=$_apiKey";
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['snappedPoints'] != null; // 도로 데이터가 있으면 true 반환
+      }
+    } catch (e) {
+      print('Error checking road data: $e');
+    }
+    return false;
   }
 
   void addPath(LatLng position) {

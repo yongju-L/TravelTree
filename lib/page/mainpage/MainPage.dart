@@ -55,7 +55,16 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _updateTransportData(String mode, double distance, int duration) {
+    if (mode == 'Unknown') {
+      // Unknown 데이터는 저장하지 않음
+      return;
+    }
+
     setState(() {
+      if (!_transportationData.containsKey(mode)) {
+        _transportationData[mode] = {'distance': 0.0, 'duration': 0};
+      }
+
       _transportationData[mode]!['distance'] += distance;
       _transportationData[mode]!['duration'] += duration;
     });
@@ -100,7 +109,7 @@ class _MainPageState extends State<MainPage> {
               stream: _locationTracking.polylinesStream,
               builder: (context, snapshot) {
                 return GoogleMap(
-                  onMapCreated: _locationTracking.onMapCreated, // 수정된 부분
+                  onMapCreated: _locationTracking.onMapCreated,
                   initialCameraPosition: CameraPosition(
                     target: _locationTracking.currentPosition,
                     zoom: 15,
