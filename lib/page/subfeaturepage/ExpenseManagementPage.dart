@@ -57,6 +57,7 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
     }
 
     setState(() {
+      _expenses.clear();
       _expenses.addAll(dbExpenses
           .where((expense) => expense['category'] != '총 경비')
           .toList());
@@ -73,14 +74,11 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       builder: (context) {
         return BudgetInputModal(
           onTotalBudgetSet: (newBudget) async {
-            // 이전 총 경비 삭제
             await _databaseHelper.deleteByCategory('총 경비');
             setState(() {
               _totalBudget = newBudget;
               _remainingBudget = _totalBudget - _totalSpent;
             });
-
-            // 새로운 총 경비 입력
             await _databaseHelper.insertExpense(
               category: '총 경비',
               amount: newBudget,
@@ -89,18 +87,21 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
             );
           },
           onAdditionalBudgetAdded: (additionalBudget) async {
-            await _databaseHelper.insertExpense(
+            final newId = await _databaseHelper.insertExpense(
               category: '경비 추가',
               amount: additionalBudget,
               time: DateTime.now(),
               isBudgetAddition: true,
             );
+
             setState(() {
               _totalBudget += additionalBudget;
               _remainingBudget += additionalBudget;
+
               _expenses.insert(
                 0,
                 {
+                  'id': newId, // 새로 생성된 id 포함
                   'category': '경비 추가',
                   'amount': additionalBudget,
                   'time': DateTime.now().toLocal().toString().substring(11, 16),
@@ -144,6 +145,21 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
         );
       },
     );
+  }
+
+  void _deleteExpense(int id, int index) async {
+    await _databaseHelper.deleteExpense(id); // DB에서 삭제
+    setState(() {
+      final expense = _expenses.removeAt(index); // UI에서 삭제
+      final amount = double.tryParse(expense['amount'].toString()) ?? 0.0;
+
+      if (expense['is_budget_addition'] == true) {
+        _totalBudget -= amount;
+      } else {
+        _totalSpent -= amount;
+      }
+      _remainingBudget = _totalBudget - _totalSpent;
+    });
   }
 
   void _navigateToStatistics() {
@@ -224,7 +240,6 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // 총 경비 표시
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -258,18 +273,42 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
                       ? "+₩${amount.toStringAsFixed(0)}"
                       : "-₩${amount.toStringAsFixed(0)}";
 
-                  return ListTile(
-                    leading: Icon(
-                      categoryIcons[expense['category']] ?? Icons.error,
-                      color: Colors.black,
-                    ),
-                    title: Text(expense['category']),
-                    subtitle: Text(
-                      displayAmount,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: isBudgetAddition ? Colors.red : Colors.blue,
+                  return GestureDetector(
+                    onLongPress: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text("삭제 확인"),
+                          content: const Text("이 항목을 삭제하시겠습니까?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text("취소"),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _deleteExpense(expense['id'], index);
+                              },
+                              child: const Text("삭제"),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: ListTile(
+                      leading: Icon(
+                        categoryIcons[expense['category']] ?? Icons.error,
+                        color: Colors.black,
+                      ),
+                      title: Text(expense['category']),
+                      subtitle: Text(
+                        displayAmount,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isBudgetAddition ? Colors.red : Colors.blue,
+                        ),
                       ),
                     ),
                   );

@@ -16,17 +16,18 @@ class DatabaseHelper {
     print('PostgreSQL 연결 성공');
   }
 
-  Future<void> insertExpense({
+  Future<int> insertExpense({
     required String category,
     required double amount,
     required DateTime time,
     required bool isBudgetAddition,
   }) async {
-    await _connection.query(
+    final result = await _connection.query(
       '''
-      INSERT INTO expenses (category, amount, time, is_budget_addition)
-      VALUES (@category, @amount, @time, @is_budget_addition)
-      ''',
+    INSERT INTO expenses (category, amount, time, is_budget_addition)
+    VALUES (@category, @amount, @time, @is_budget_addition)
+    RETURNING id
+    ''',
       substitutionValues: {
         'category': category,
         'amount': amount,
@@ -34,11 +35,13 @@ class DatabaseHelper {
         'is_budget_addition': isBudgetAddition,
       },
     );
+
+    return result.first[0] as int; // 새로 생성된 id 반환
   }
 
   Future<List<Map<String, dynamic>>> getExpenses() async {
     final results = await _connection.mappedResultsQuery(
-      'SELECT * FROM expenses ORDER BY time DESC',
+      'SELECT id, category, amount, time, is_budget_addition FROM expenses ORDER BY time DESC',
     );
 
     return results.map((row) => row['expenses']!).toList();
@@ -49,6 +52,7 @@ class DatabaseHelper {
       'DELETE FROM expenses WHERE id = @id',
       substitutionValues: {'id': id},
     );
+    print('Expense with ID $id deleted from the database');
   }
 
   Future<void> deleteByCategory(String category) async {
@@ -56,6 +60,7 @@ class DatabaseHelper {
       'DELETE FROM expenses WHERE category = @category',
       substitutionValues: {'category': category},
     );
+    print('Expenses with category "$category" deleted from the database');
   }
 
   Future<void> close() async {
