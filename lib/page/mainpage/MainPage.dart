@@ -19,8 +19,9 @@ class _MainPageState extends State<MainPage> {
 
   bool _isLoading = true;
   bool _hasInitializedPosition = false;
+  bool _isDisposed = false; // dispose 상태를 추적
 
-  Map<String, dynamic> _transportationData = {
+  final Map<String, dynamic> _transportationData = {
     'Walking': {'distance': 0.0, 'duration': 0},
     'Driving': {'distance': 0.0, 'duration': 0},
     'Public Transport': {'distance': 0.0, 'duration': 0},
@@ -37,18 +38,22 @@ class _MainPageState extends State<MainPage> {
     await _locationService.requestLocationPermission(context);
 
     _locationTracking.initializeTracking((controller) {
+      if (!mounted) return; // dispose 상태 확인
       setState(() {});
     });
 
     try {
       Position position = await _locationService.getCurrentPosition();
+      if (_isDisposed) return; // dispose 상태 확인
       _locationTracking.addPath(LatLng(position.latitude, position.longitude));
 
+      if (!mounted) return; // dispose 상태 확인
       setState(() {
         _isLoading = false;
         _hasInitializedPosition = true;
       });
     } catch (error) {
+      if (_isDisposed) return; // dispose 상태 확인
       print("위치 가져오기 실패: $error");
       _showErrorDialog();
     }
@@ -60,6 +65,7 @@ class _MainPageState extends State<MainPage> {
       return;
     }
 
+    if (!mounted) return; // dispose 상태 확인
     setState(() {
       if (!_transportationData.containsKey(mode)) {
         _transportationData[mode] = {'distance': 0.0, 'duration': 0};
@@ -71,6 +77,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _showErrorDialog() {
+    if (!mounted) return; // dispose 상태 확인
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -126,6 +133,7 @@ class _MainPageState extends State<MainPage> {
 
   @override
   void dispose() {
+    _isDisposed = true; // dispose 상태를 true로 설정
     _locationTracking.dispose();
     super.dispose();
   }

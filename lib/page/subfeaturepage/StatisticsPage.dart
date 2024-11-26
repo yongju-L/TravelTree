@@ -30,8 +30,9 @@ class StatisticsPage extends StatelessWidget {
     Map<String, double> data = {};
 
     for (var expense in expenses) {
-      data[expense['category']] =
-          (data[expense['category']] ?? 0) + expense['amount'];
+      // 금액을 double로 변환하여 합산
+      double amount = double.tryParse(expense['amount'].toString()) ?? 0.0;
+      data[expense['category']] = (data[expense['category']] ?? 0) + amount;
     }
 
     if (remainingBudget > 0) {
@@ -58,6 +59,7 @@ class StatisticsPage extends StatelessWidget {
       ),
       body: Column(
         children: [
+          // Pie Chart
           Expanded(
             flex: 6,
             child: Padding(
@@ -81,31 +83,51 @@ class StatisticsPage extends StatelessWidget {
             ),
           ),
           const Divider(height: 2, color: Colors.black),
+          // Remaining Budget
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Text(
-              '남은 경비: ₩${remainingBudget.toStringAsFixed(0)}',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: remainingBudget > 0 ? Colors.green : Colors.red,
-              ),
+            child: Column(
+              children: [
+                Text(
+                  '남은 경비: ₩${remainingBudget.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: remainingBudget > 0 ? Colors.green : Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '총 지출 금액: ₩${totalSpent.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue,
+                  ),
+                ),
+              ],
             ),
           ),
+          // List of Expenses
           Expanded(
             flex: 4,
             child: ListView.builder(
               itemCount: expenses.length,
               itemBuilder: (context, index) {
                 final expense = expenses[index];
+                final amount =
+                    double.tryParse(expense['amount'].toString()) ?? 0.0;
+
                 return ListTile(
                   leading: Icon(
                     categoryIcons[expense['category']] ?? Icons.error,
                     color: Colors.black,
                   ),
                   title: Text(expense['category']),
-                  subtitle: Text('₩${expense['amount'].toStringAsFixed(0)}'),
-                  trailing: Text(expense['time']),
+                  subtitle: Text(
+                    "₩${amount.toStringAsFixed(0)}",
+                    style: const TextStyle(fontSize: 16),
+                  ),
                 );
               },
             ),

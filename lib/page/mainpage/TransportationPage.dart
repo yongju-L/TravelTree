@@ -144,9 +144,9 @@ class TransportationPage extends StatelessWidget {
     final int hours = seconds ~/ 3600;
     final int minutes = (seconds % 3600) ~/ 60;
     if (hours > 0) {
-      return '${hours}시간 ${minutes}분';
+      return '$hours시간 $minutes분';
     } else {
-      return '${minutes}분';
+      return '$minutes분';
     }
   }
 }
