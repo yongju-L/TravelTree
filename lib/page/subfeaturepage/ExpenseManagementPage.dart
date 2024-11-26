@@ -39,8 +39,9 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
   }
 
   Future<void> _loadDataFromDatabase() async {
-    await _databaseHelper.connect();
+    await _databaseHelper.connect(); // 데이터베이스 연결
     List<Map<String, dynamic>> dbExpenses = await _databaseHelper.getExpenses();
+
     double totalSpent = 0.0;
     double totalBudget = 0.0;
 
@@ -48,23 +49,33 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       double amount = double.tryParse(expense['amount'].toString()) ?? 0.0;
 
       if (expense['category'] == '총 경비') {
-        totalBudget = amount; // 최신 총 경비만 유지
+        // '총 경비' 항목을 totalBudget에 설정
+        totalBudget = amount;
       } else if (expense['is_budget_addition'] == true) {
+        // '경비 추가' 항목을 총 경비에 추가
         totalBudget += amount;
       } else {
+        // 지출 항목을 총 지출에 추가
         totalSpent += amount;
       }
     }
 
     setState(() {
       _expenses.clear();
+
+      // '총 경비' 항목은 ListView에 표시하지 않음
       _expenses.addAll(dbExpenses
           .where((expense) => expense['category'] != '총 경비')
           .toList());
+
       _totalSpent = totalSpent;
       _totalBudget = totalBudget;
       _remainingBudget = _totalBudget - _totalSpent;
     });
+
+    print("DB에서 불러온 총 경비: $totalBudget");
+    print("DB에서 불러온 총 지출: $totalSpent");
+    print("DB에서 불러온 내역: $_expenses");
   }
 
   void _openBudgetModal() {
@@ -75,16 +86,21 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
         return BudgetInputModal(
           onTotalBudgetSet: (newBudget) async {
             await _databaseHelper.deleteByCategory('총 경비');
-            setState(() {
-              _totalBudget = newBudget;
-              _remainingBudget = _totalBudget - _totalSpent;
-            });
-            await _databaseHelper.insertExpense(
+
+            // DB에 새 총 경비 삽입
+            final newId = await _databaseHelper.insertExpense(
               category: '총 경비',
               amount: newBudget,
               time: DateTime.now(),
               isBudgetAddition: true,
             );
+
+            setState(() {
+              _totalBudget = newBudget;
+              _remainingBudget = _totalBudget - _totalSpent;
+            });
+
+            print('총 경비 설정 완료: ID = $newId, 금액 = $newBudget');
           },
           onAdditionalBudgetAdded: (additionalBudget) async {
             final newId = await _databaseHelper.insertExpense(
@@ -94,14 +110,18 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               isBudgetAddition: true,
             );
 
+            // '총 경비' 업데이트
+            final updatedTotalBudget = _totalBudget + additionalBudget;
+            await _databaseHelper.updateTotalBudget(updatedTotalBudget);
+
             setState(() {
-              _totalBudget += additionalBudget;
+              _totalBudget = updatedTotalBudget;
               _remainingBudget += additionalBudget;
 
               _expenses.insert(
                 0,
                 {
-                  'id': newId, // 새로 생성된 id 포함
+                  'id': newId,
                   'category': '경비 추가',
                   'amount': additionalBudget,
                   'time': DateTime.now().toLocal().toString().substring(11, 16),
@@ -109,6 +129,8 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
                 },
               );
             });
+
+            print('경비 추가 완료: ID = $newId, 금액 = $additionalBudget');
           },
         );
       },
@@ -122,16 +144,20 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       builder: (context) {
         return ExpenseInputModal(
           onExpenseAdded: (amount, category) async {
-            await _databaseHelper.insertExpense(
+            // DB에 새로운 경비 추가
+            final newId = await _databaseHelper.insertExpense(
               category: category,
               amount: amount,
               time: DateTime.now(),
               isBudgetAddition: false,
             );
+
             setState(() {
+              // UI 업데이트
               _expenses.insert(
                 0,
                 {
+                  'id': newId, // 새로 생성된 id
                   'category': category,
                   'amount': amount,
                   'time': DateTime.now().toLocal().toString().substring(11, 16),
@@ -141,6 +167,10 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               _totalSpent += amount;
               _remainingBudget = _totalBudget - _totalSpent;
             });
+
+            // 총 경비 업데이트 (DB와 UI 모두 반영)
+            final updatedTotalBudget = _totalBudget; // 기존 총 경비
+            await _databaseHelper.updateTotalBudget(updatedTotalBudget);
           },
         );
       },
@@ -148,18 +178,26 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
   }
 
   void _deleteExpense(int id, int index) async {
+    final expense = _expenses[index]; // 삭제할 항목
+
     await _databaseHelper.deleteExpense(id); // DB에서 삭제
     setState(() {
-      final expense = _expenses.removeAt(index); // UI에서 삭제
+      _expenses.removeAt(index); // UI에서 삭제
       final amount = double.tryParse(expense['amount'].toString()) ?? 0.0;
 
       if (expense['is_budget_addition'] == true) {
         _totalBudget -= amount;
+
+        // '총 경비' 업데이트
+        _databaseHelper.updateTotalBudget(_totalBudget);
       } else {
         _totalSpent -= amount;
       }
+
       _remainingBudget = _totalBudget - _totalSpent;
     });
+
+    print('삭제 완료: ID = $id');
   }
 
   void _navigateToStatistics() {

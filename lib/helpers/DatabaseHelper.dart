@@ -5,7 +5,7 @@ class DatabaseHelper {
 
   Future<void> connect() async {
     _connection = PostgreSQLConnection(
-      '172.30.1.100', // PostgreSQL 서버 주소 (로컬호스트)
+      '172.30.1.100', // PostgreSQL 서버 주소
       5432, // 기본 PostgreSQL 포트
       'traveltree', // 데이터베이스 이름
       username: 'postgres', // PostgreSQL 사용자 이름
@@ -24,10 +24,10 @@ class DatabaseHelper {
   }) async {
     final result = await _connection.query(
       '''
-    INSERT INTO expenses (category, amount, time, is_budget_addition)
-    VALUES (@category, @amount, @time, @is_budget_addition)
-    RETURNING id
-    ''',
+      INSERT INTO expenses (category, amount, time, is_budget_addition)
+      VALUES (@category, @amount, @time, @is_budget_addition)
+      RETURNING id
+      ''',
       substitutionValues: {
         'category': category,
         'amount': amount,
@@ -36,7 +36,7 @@ class DatabaseHelper {
       },
     );
 
-    return result.first[0] as int; // 새로 생성된 id 반환
+    return result.first[0] as int; // 새로 생성된 ID 반환
   }
 
   Future<List<Map<String, dynamic>>> getExpenses() async {
@@ -61,6 +61,18 @@ class DatabaseHelper {
       substitutionValues: {'category': category},
     );
     print('Expenses with category "$category" deleted from the database');
+  }
+
+  Future<void> updateTotalBudget(double newTotalBudget) async {
+    await _connection.query(
+      '''
+      UPDATE expenses
+      SET amount = @newTotalBudget
+      WHERE category = '총 경비'
+      ''',
+      substitutionValues: {'newTotalBudget': newTotalBudget},
+    );
+    print('총 경비 업데이트 완료: $newTotalBudget');
   }
 
   Future<void> close() async {
