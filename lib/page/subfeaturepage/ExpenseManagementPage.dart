@@ -14,6 +14,7 @@ class ExpenseManagementPage extends StatefulWidget {
 }
 
 class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
+  DateTime _selectedDate = DateTime.now();
   double _totalBudget = 0.0;
   double _remainingBudget = 0.0;
   double _totalSpent = 0.0;
@@ -39,8 +40,9 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
   }
 
   Future<void> _loadDataFromDatabase() async {
-    await _databaseHelper.connect(); // 데이터베이스 연결
-    List<Map<String, dynamic>> dbExpenses = await _databaseHelper.getExpenses();
+    await _databaseHelper.connect();
+    List<Map<String, dynamic>> dbExpenses =
+        await _databaseHelper.getExpensesByDate(_selectedDate);
 
     double totalSpent = 0.0;
     double totalBudget = 0.0;
@@ -49,33 +51,23 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       double amount = double.tryParse(expense['amount'].toString()) ?? 0.0;
 
       if (expense['category'] == '총 경비') {
-        // '총 경비' 항목을 totalBudget에 설정
         totalBudget = amount;
       } else if (expense['is_budget_addition'] == true) {
-        // '경비 추가' 항목을 총 경비에 추가
         totalBudget += amount;
       } else {
-        // 지출 항목을 총 지출에 추가
         totalSpent += amount;
       }
     }
 
     setState(() {
       _expenses.clear();
-
-      // '총 경비' 항목은 ListView에 표시하지 않음
       _expenses.addAll(dbExpenses
           .where((expense) => expense['category'] != '총 경비')
           .toList());
-
       _totalSpent = totalSpent;
       _totalBudget = totalBudget;
       _remainingBudget = _totalBudget - _totalSpent;
     });
-
-    print("DB에서 불러온 총 경비: $totalBudget");
-    print("DB에서 불러온 총 지출: $totalSpent");
-    print("DB에서 불러온 내역: $_expenses");
   }
 
   void _openBudgetModal() {
@@ -85,22 +77,23 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       builder: (context) {
         return BudgetInputModal(
           onTotalBudgetSet: (newBudget) async {
-            await _databaseHelper.deleteByCategory('총 경비');
+            await _databaseHelper.deleteByCategoryAndDate(
+                '총 경비', _selectedDate);
 
-            // DB에 새 총 경비 삽입
             final newId = await _databaseHelper.insertExpense(
               category: '총 경비',
               amount: newBudget,
               time: DateTime.now(),
               isBudgetAddition: true,
+              date: _selectedDate,
             );
+
+            print('새 총 경비 저장 완료: ID = $newId');
 
             setState(() {
               _totalBudget = newBudget;
               _remainingBudget = _totalBudget - _totalSpent;
             });
-
-            print('총 경비 설정 완료: ID = $newId, 금액 = $newBudget');
           },
           onAdditionalBudgetAdded: (additionalBudget) async {
             final newId = await _databaseHelper.insertExpense(
@@ -108,11 +101,12 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               amount: additionalBudget,
               time: DateTime.now(),
               isBudgetAddition: true,
+              date: _selectedDate,
             );
 
-            // '총 경비' 업데이트
             final updatedTotalBudget = _totalBudget + additionalBudget;
-            await _databaseHelper.updateTotalBudget(updatedTotalBudget);
+            await _databaseHelper.updateTotalBudget(
+                updatedTotalBudget, _selectedDate);
 
             setState(() {
               _totalBudget = updatedTotalBudget;
@@ -129,8 +123,6 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
                 },
               );
             });
-
-            print('경비 추가 완료: ID = $newId, 금액 = $additionalBudget');
           },
         );
       },
@@ -144,20 +136,19 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       builder: (context) {
         return ExpenseInputModal(
           onExpenseAdded: (amount, category) async {
-            // DB에 새로운 경비 추가
             final newId = await _databaseHelper.insertExpense(
               category: category,
               amount: amount,
               time: DateTime.now(),
               isBudgetAddition: false,
+              date: _selectedDate,
             );
 
             setState(() {
-              // UI 업데이트
               _expenses.insert(
                 0,
                 {
-                  'id': newId, // 새로 생성된 id
+                  'id': newId,
                   'category': category,
                   'amount': amount,
                   'time': DateTime.now().toLocal().toString().substring(11, 16),
@@ -167,10 +158,6 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               _totalSpent += amount;
               _remainingBudget = _totalBudget - _totalSpent;
             });
-
-            // 총 경비 업데이트 (DB와 UI 모두 반영)
-            final updatedTotalBudget = _totalBudget; // 기존 총 경비
-            await _databaseHelper.updateTotalBudget(updatedTotalBudget);
           },
         );
       },
@@ -178,26 +165,36 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
   }
 
   void _deleteExpense(int id, int index) async {
-    final expense = _expenses[index]; // 삭제할 항목
+    final expense = _expenses[index];
 
-    await _databaseHelper.deleteExpense(id); // DB에서 삭제
+    await _databaseHelper.deleteExpense(id);
     setState(() {
-      _expenses.removeAt(index); // UI에서 삭제
+      _expenses.removeAt(index);
       final amount = double.tryParse(expense['amount'].toString()) ?? 0.0;
 
       if (expense['is_budget_addition'] == true) {
         _totalBudget -= amount;
-
-        // '총 경비' 업데이트
-        _databaseHelper.updateTotalBudget(_totalBudget);
+        _databaseHelper.updateTotalBudget(_totalBudget, _selectedDate);
       } else {
         _totalSpent -= amount;
       }
 
       _remainingBudget = _totalBudget - _totalSpent;
     });
+  }
 
-    print('삭제 완료: ID = $id');
+  Future<void> _selectDate(BuildContext context) async {
+    final selectedDate = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CalendarPage()),
+    );
+
+    if (selectedDate != null && selectedDate is DateTime) {
+      setState(() {
+        _selectedDate = selectedDate;
+      });
+      _loadDataFromDatabase();
+    }
   }
 
   void _navigateToStatistics() {
@@ -232,18 +229,23 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
     }
   }
 
-  void _navigateToCalendar() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CalendarPage()),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('경비관리'),
+        title: Row(
+          children: [
+            const Text('경비관리'),
+            const SizedBox(width: 8),
+            Text(
+              '(${_selectedDate.month}-${_selectedDate.day})', // 선택된 날짜 표시
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black54,
+              ),
+            ),
+          ],
+        ),
         actions: [
           Container(
             margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
@@ -371,7 +373,7 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
             ),
             IconButton(
               icon: const Icon(Icons.calendar_today),
-              onPressed: _navigateToCalendar,
+              onPressed: () => _selectDate(context),
             ),
           ],
         ),

@@ -21,11 +21,12 @@ class DatabaseHelper {
     required double amount,
     required DateTime time,
     required bool isBudgetAddition,
+    required DateTime date, // 날짜 추가
   }) async {
     final result = await _connection.query(
       '''
-      INSERT INTO expenses (category, amount, time, is_budget_addition)
-      VALUES (@category, @amount, @time, @is_budget_addition)
+      INSERT INTO expenses (category, amount, time, is_budget_addition, date)
+      VALUES (@category, @amount, @time, @is_budget_addition, @date)
       RETURNING id
       ''',
       substitutionValues: {
@@ -33,15 +34,24 @@ class DatabaseHelper {
         'amount': amount,
         'time': time.toUtc(),
         'is_budget_addition': isBudgetAddition,
+        'date': DateTime(date.year, date.month, date.day).toUtc(), // 날짜만 저장
       },
     );
 
     return result.first[0] as int; // 새로 생성된 ID 반환
   }
 
-  Future<List<Map<String, dynamic>>> getExpenses() async {
+  Future<List<Map<String, dynamic>>> getExpensesByDate(DateTime date) async {
     final results = await _connection.mappedResultsQuery(
-      'SELECT id, category, amount, time, is_budget_addition FROM expenses ORDER BY time DESC',
+      '''
+      SELECT id, category, amount, time, is_budget_addition, date
+      FROM expenses
+      WHERE date = @date
+      ORDER BY time DESC
+      ''',
+      substitutionValues: {
+        'date': DateTime(date.year, date.month, date.day).toUtc(),
+      },
     );
 
     return results.map((row) => row['expenses']!).toList();
@@ -55,24 +65,34 @@ class DatabaseHelper {
     print('Expense with ID $id deleted from the database');
   }
 
-  Future<void> deleteByCategory(String category) async {
+  Future<void> deleteByCategoryAndDate(String category, DateTime date) async {
     await _connection.query(
-      'DELETE FROM expenses WHERE category = @category',
-      substitutionValues: {'category': category},
+      '''
+      DELETE FROM expenses
+      WHERE category = @category AND date = @date
+      ''',
+      substitutionValues: {
+        'category': category,
+        'date': DateTime(date.year, date.month, date.day).toUtc(),
+      },
     );
-    print('Expenses with category "$category" deleted from the database');
+    print(
+        'Expenses with category "$category" on date "$date" deleted from the database');
   }
 
-  Future<void> updateTotalBudget(double newTotalBudget) async {
+  Future<void> updateTotalBudget(double newTotalBudget, DateTime date) async {
     await _connection.query(
       '''
       UPDATE expenses
       SET amount = @newTotalBudget
-      WHERE category = '총 경비'
+      WHERE category = '총 경비' AND date = @date
       ''',
-      substitutionValues: {'newTotalBudget': newTotalBudget},
+      substitutionValues: {
+        'newTotalBudget': newTotalBudget,
+        'date': DateTime(date.year, date.month, date.day).toUtc(),
+      },
     );
-    print('총 경비 업데이트 완료: $newTotalBudget');
+    print('총 경비 업데이트 완료: $newTotalBudget on $date');
   }
 
   Future<void> close() async {
