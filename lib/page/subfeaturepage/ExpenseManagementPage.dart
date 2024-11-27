@@ -4,7 +4,7 @@ import 'package:traveltree/widgets/AppDrawer.dart';
 import 'package:traveltree/widgets/ExpenseInputModal.dart';
 import 'package:traveltree/widgets/BudgetInputModal.dart';
 import 'package:traveltree/page/subfeaturepage/CalendarPage.dart';
-import 'package:traveltree/helpers/DatabaseHelper.dart';
+import 'package:traveltree/helpers/ExpenseDatabaseHelper.dart';
 
 class ExpenseManagementPage extends StatefulWidget {
   const ExpenseManagementPage({super.key});
