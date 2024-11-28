@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/subfeaturepage/ExpenseManagementPage.dart';
-import 'package:traveltree/page/subfeaturepage/ScheduleManagementPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/ExpenseManagementPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/ScheduleManagementPage.dart';
 
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  final int travelId; // travelId 추가
+
+  const AppDrawer({super.key, required this.travelId});
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,10 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const ExpenseManagementPage()),
+                  builder: (context) => ExpenseManagementPage(
+                    travelId: travelId, // travelId 전달
+                  ),
+                ),
               );
             },
           ),
@@ -38,7 +43,10 @@ class AppDrawer extends StatelessWidget {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                    builder: (context) => const ScheduleManagementPage()),
+                  builder: (context) => ScheduleManagementPage(
+                    travelId: travelId, // travelId 전달
+                  ),
+                ),
               );
             },
           ),

@@ -1,28 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/mainpage/MainPage.dart';
-import 'package:traveltree/page/subfeaturepage/SubFeaturePage.dart';
-import 'package:traveltree/page/Page2.dart';
-import 'package:traveltree/page/Page3.dart';
+import 'package:traveltree/initialpage/InitialPage.dart';
+import 'package:traveltree/initialpage/LankingPage.dart';
+import 'package:traveltree/initialpage/SnsPage.dart';
 
-void navigateToPage(BuildContext context, int index) {
+void navigateToInitialPage(BuildContext context, int index, int userId) {
   Widget page;
   switch (index) {
     case 0:
-      page = const MainPage();
+      page = InitialPage(userId: userId); // userId 전달
       break;
     case 1:
-      page = const SubFeaturePage();
+      page = LankingPage(userId: userId);
       break;
     case 2:
-      page = const Page2();
-      break;
-    case 3:
-      page = const Page3();
+      page = SnsPage(userId: userId);
       break;
     default:
       return;
   }
-
   Navigator.pushReplacement(
     context,
     PageRouteBuilder(
@@ -38,20 +33,19 @@ void navigateToPage(BuildContext context, int index) {
   );
 }
 
-BottomNavigationBar buildBottomNavigationBar(
-    BuildContext context, int currentIndex) {
+BottomNavigationBar buildInitialBottomNavigationBar(
+    BuildContext context, int currentIndex, int userId) {
   return BottomNavigationBar(
     backgroundColor: Colors.white,
     selectedItemColor: Colors.black,
     unselectedItemColor: Colors.grey,
     iconSize: 30,
     currentIndex: currentIndex,
-    onTap: (index) => navigateToPage(context, index),
+    onTap: (index) => navigateToInitialPage(context, index, userId),
     items: const [
-      BottomNavigationBarItem(icon: Icon(Icons.home), label: 'main'),
-      BottomNavigationBarItem(icon: Icon(Icons.looks_one), label: '1'),
-      BottomNavigationBarItem(icon: Icon(Icons.looks_two), label: '2'),
-      BottomNavigationBarItem(icon: Icon(Icons.looks_3), label: '3'),
+      BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Initial'),
+      BottomNavigationBarItem(icon: Icon(Icons.star), label: 'Lanking'),
+      BottomNavigationBarItem(icon: Icon(Icons.group), label: 'SNS'),
     ],
   );
 }

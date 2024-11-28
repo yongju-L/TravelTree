@@ -23,35 +23,39 @@ class ScheduleDatabaseHelper {
     required String content,
     required bool completed,
     required DateTime date,
+    required int travelId, // travelId 추가
   }) async {
     final result = await _connection.query(
       '''
-    INSERT INTO schedules (title, content, completed, date)
-    VALUES (@title, @content, @completed, @date)
-    RETURNING id
-    ''',
+      INSERT INTO schedules (title, content, completed, date, travel_id)
+      VALUES (@title, @content, @completed, @date, @travel_id)
+      RETURNING id
+      ''',
       substitutionValues: {
         'title': title,
         'content': content,
         'completed': completed,
-        'date': date.toUtc(),
+        'date': date.toIso8601String(),
+        'travel_id': travelId, // travelId 값 전달
       },
     );
 
     return result.first[0] as int;
   }
 
-  /// Get schedules from the database for a specific date.
-  Future<List<Map<String, dynamic>>> getSchedulesByDate(DateTime date) async {
+  /// Get schedules from the database for a specific date and travelId.
+  Future<List<Map<String, dynamic>>> getSchedulesByDateAndTravelId(
+      DateTime date, int travelId) async {
     final results = await _connection.mappedResultsQuery(
       '''
-    SELECT id, title, content, completed, date
-    FROM schedules
-    WHERE date = @date
-    ORDER BY id
-    ''',
+      SELECT id, title, content, completed, date
+      FROM schedules
+      WHERE date = @date AND travel_id = @travel_id
+      ORDER BY id
+      ''',
       substitutionValues: {
-        'date': date.toUtc(),
+        'date': date.toIso8601String(),
+        'travel_id': travelId, // travelId 조건 추가
       },
     );
 

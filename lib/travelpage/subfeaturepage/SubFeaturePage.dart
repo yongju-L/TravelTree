@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/widgets/NavigationHelper.dart';
-import 'package:traveltree/page/subfeaturepage/ExpenseManagementPage.dart';
-import 'package:traveltree/page/subfeaturepage/ScheduleManagementPage.dart'; // 일정관리 페이지 임포트
+import 'package:traveltree/widgets/TravelNavigation.dart';
+import 'package:traveltree/travelpage/subfeaturepage/ExpenseManagementPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/ScheduleManagementPage.dart';
 
 class SubFeaturePage extends StatelessWidget {
-  const SubFeaturePage({super.key});
+  final int travelId; // travelId만 받도록 수정
+
+  const SubFeaturePage({
+    super.key,
+    required this.travelId,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sub Feature Page')),
+      appBar: AppBar(
+        title: Text('Sub Features for Travel ID: $travelId'), // travelId 출력
+      ),
       body: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         child: Column(
@@ -22,7 +29,8 @@ class SubFeaturePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ExpenseManagementPage(),
+                    builder: (context) => ExpenseManagementPage(
+                        travelId: travelId), // travelId 전달
                   ),
                 );
               },
@@ -35,7 +43,8 @@ class SubFeaturePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const ScheduleManagementPage(),
+                    builder: (context) => ScheduleManagementPage(
+                        travelId: travelId), // travelId 전달
                   ),
                 );
               },
@@ -51,7 +60,11 @@ class SubFeaturePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: buildBottomNavigationBar(context, 1),
+      bottomNavigationBar: buildBottomNavigationBar(
+        context,
+        1,
+        travelId, // travelId 전달
+      ),
     );
   }
 

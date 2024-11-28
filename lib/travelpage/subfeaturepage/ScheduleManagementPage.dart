@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:traveltree/helpers/ScheduleDatabaseHelper.dart';
-import 'package:traveltree/page/subfeaturepage/CalendarPage.dart';
-import 'package:traveltree/page/subfeaturepage/WeeklySchedulePage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/CalendarPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/WeeklySchedulePage.dart';
 import 'package:traveltree/widgets/AppDrawer.dart';
 
 class ScheduleManagementPage extends StatefulWidget {
-  const ScheduleManagementPage({super.key});
+  final int travelId; // travelId 추가
+
+  const ScheduleManagementPage({super.key, required this.travelId});
 
   @override
   _ScheduleManagementPageState createState() => _ScheduleManagementPageState();
@@ -24,65 +26,49 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
   }
 
   Future<void> _initializeDB() async {
-    final _dbHelper = ScheduleDatabaseHelper();
-    await _dbHelper.connect();
+    final dbHelper = ScheduleDatabaseHelper();
+    await dbHelper.connect();
 
-    final schedules =
-        await _dbHelper.getSchedulesByDate(_selectedDate); // 선택된 날짜로 변경
+    final schedules = await dbHelper.getSchedulesByDateAndTravelId(
+      _selectedDate, // 정확한 날짜 사용
+      widget.travelId,
+    );
 
     setState(() {
       _schedules.clear();
       _schedules.addAll(schedules.map((schedule) {
-        final startTimeString = schedule['start_time'] as String?;
-        final endTimeString = schedule['end_time'] as String?;
-
         return {
           'id': schedule['id'],
           'title': schedule['title'],
           'content': schedule['content'],
-          'startTime': startTimeString != null
-              ? TimeOfDay(
-                  hour: int.parse(startTimeString.split(':')[0]),
-                  minute: int.parse(startTimeString.split(':')[1]),
-                )
-              : null,
-          'endTime': endTimeString != null
-              ? TimeOfDay(
-                  hour: int.parse(endTimeString.split(':')[0]),
-                  minute: int.parse(endTimeString.split(':')[1]),
-                )
-              : null,
           'completed': schedule['completed'],
-          'date': schedule['date'],
         };
       }).toList());
     });
   }
 
   void _addSchedule(String title, String content) async {
-    final _dbHelper = ScheduleDatabaseHelper();
-    await _dbHelper.connect();
+    final dbHelper = ScheduleDatabaseHelper();
+    await dbHelper.connect();
 
-    // 데이터베이스에 삽입
-    final id = await _dbHelper.insertSchedule(
+    final id = await dbHelper.insertSchedule(
       title: title,
       content: content,
       completed: false,
       date: _selectedDate,
+      travelId: widget.travelId,
     );
 
-    // 새로운 데이터를 _schedules에 추가하여 즉시 UI 갱신
     setState(() {
       _schedules.add({
         'id': id,
         'title': title,
         'content': content,
         'completed': false,
-        'date': _selectedDate,
+        'date': _selectedDate, // 그대로 로컬 날짜 저장
       });
     });
 
-    // 입력 필드 초기화
     _titleController.clear();
   }
 
@@ -95,9 +81,9 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
 
     if (selectedDate != null && selectedDate is DateTime) {
       setState(() {
-        _selectedDate = selectedDate; // 선택된 날짜를 업데이트
+        _selectedDate = selectedDate;
       });
-      _initializeDB(); // 선택된 날짜로 데이터를 다시 불러옴
+      _initializeDB(); // 데이터 다시 로드
     }
   }
 
@@ -132,11 +118,11 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final _dbHelper = ScheduleDatabaseHelper();
-                await _dbHelper.connect();
+                final dbHelper = ScheduleDatabaseHelper();
+                await dbHelper.connect();
 
                 // DB에서 삭제
-                await _dbHelper.deleteSchedule(schedule['id']);
+                await dbHelper.deleteSchedule(schedule['id']);
 
                 // UI 갱신
                 await _initializeDB();
@@ -162,18 +148,19 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
     final wasCompleted = toggledItem['completed'];
     toggledItem['completed'] = !wasCompleted;
 
-    final _dbHelper = ScheduleDatabaseHelper();
-    await _dbHelper.connect();
+    final dbHelper = ScheduleDatabaseHelper();
+    await dbHelper.connect();
 
     // DB에서 기존 데이터 삭제
-    await _dbHelper.deleteSchedule(toggledItem['id']);
+    await dbHelper.deleteSchedule(toggledItem['id']);
 
     // 기존 데이터를 유지하며 상태 변경 후 새로 삽입
-    final newId = await _dbHelper.insertSchedule(
+    final newId = await dbHelper.insertSchedule(
       title: toggledItem['title'],
       content: toggledItem['content'],
       completed: toggledItem['completed'], // 변경된 상태로 저장
       date: toggledItem['date'], // 기존 날짜 유지
+      travelId: widget.travelId, // travelId 전달
     );
 
     // UI 갱신 (id 업데이트)
@@ -183,25 +170,6 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
         'id': newId, // 새로운 ID 반영
       };
     });
-  }
-
-  Future<void> _pickTime(BuildContext context, bool isStartTime) async {
-    final TimeOfDay? pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (pickedTime != null) {
-      setState(() {
-        if (isStartTime) {
-        } else {}
-      });
-    }
   }
 
   void _showAddScheduleBottomSheet() {
@@ -298,7 +266,7 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
           ),
         ],
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(travelId: widget.travelId),
       body: ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemCount: _schedules.length,
@@ -348,7 +316,9 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const WeeklySchedulePage()),
+                    builder: (context) =>
+                        WeeklySchedulePage(travelId: widget.travelId),
+                  ),
                 );
               },
             ),

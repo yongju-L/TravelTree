@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/subfeaturepage/StatisticsPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/StatisticsPage.dart';
 import 'package:traveltree/widgets/AppDrawer.dart';
 import 'package:traveltree/widgets/ExpenseInputModal.dart';
 import 'package:traveltree/widgets/BudgetInputModal.dart';
-import 'package:traveltree/page/subfeaturepage/CalendarPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/CalendarPage.dart';
 import 'package:traveltree/helpers/ExpenseDatabaseHelper.dart';
 
 class ExpenseManagementPage extends StatefulWidget {
-  const ExpenseManagementPage({super.key});
+  final int travelId; // travelId 추가
+
+  const ExpenseManagementPage({super.key, required this.travelId});
 
   @override
   _ExpenseManagementPageState createState() => _ExpenseManagementPageState();
@@ -19,7 +21,7 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
   double _remainingBudget = 0.0;
   double _totalSpent = 0.0;
   final List<Map<String, dynamic>> _expenses = [];
-  final DatabaseHelper _databaseHelper = DatabaseHelper();
+  final ExpenseDatabaseHelper _databaseHelper = ExpenseDatabaseHelper();
 
   final Map<String, IconData> categoryIcons = {
     '음식': Icons.restaurant,
@@ -42,7 +44,8 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
   Future<void> _loadDataFromDatabase() async {
     await _databaseHelper.connect();
     List<Map<String, dynamic>> dbExpenses =
-        await _databaseHelper.getExpensesByDate(_selectedDate);
+        await _databaseHelper.getExpensesByDateAndTravelId(
+            _selectedDate, widget.travelId); // travelId 사용
 
     double totalSpent = 0.0;
     double totalBudget = 0.0;
@@ -77,8 +80,8 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
       builder: (context) {
         return BudgetInputModal(
           onTotalBudgetSet: (newBudget) async {
-            await _databaseHelper.deleteByCategoryAndDate(
-                '총 경비', _selectedDate);
+            await _databaseHelper.deleteByCategoryAndDateAndTravelId(
+                '총 경비', _selectedDate, widget.travelId); // travelId 사용
 
             final newId = await _databaseHelper.insertExpense(
               category: '총 경비',
@@ -86,6 +89,7 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               time: DateTime.now(),
               isBudgetAddition: true,
               date: _selectedDate,
+              travelId: widget.travelId, // travelId 전달
             );
 
             print('새 총 경비 저장 완료: ID = $newId');
@@ -102,11 +106,12 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               time: DateTime.now(),
               isBudgetAddition: true,
               date: _selectedDate,
+              travelId: widget.travelId, // travelId 전달
             );
 
             final updatedTotalBudget = _totalBudget + additionalBudget;
             await _databaseHelper.updateTotalBudget(
-                updatedTotalBudget, _selectedDate);
+                updatedTotalBudget, _selectedDate, widget.travelId);
 
             setState(() {
               _totalBudget = updatedTotalBudget;
@@ -142,6 +147,7 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
               time: DateTime.now(),
               isBudgetAddition: false,
               date: _selectedDate,
+              travelId: widget.travelId, // travelId 전달
             );
 
             setState(() {
@@ -174,7 +180,8 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
 
       if (expense['is_budget_addition'] == true) {
         _totalBudget -= amount;
-        _databaseHelper.updateTotalBudget(_totalBudget, _selectedDate);
+        _databaseHelper.updateTotalBudget(
+            _totalBudget, _selectedDate, widget.travelId); // travelId 사용
       } else {
         _totalSpent -= amount;
       }
@@ -275,7 +282,7 @@ class _ExpenseManagementPageState extends State<ExpenseManagementPage> {
           ),
         ],
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(travelId: widget.travelId), // AppDrawer에 travelId 전달
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

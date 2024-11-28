@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/page/mainpage/TransportationPage.dart';
+import 'package:traveltree/travelpage/mainpage/TransportationPage.dart';
 
 class TransportationModal {
   static void showTransportationModal(

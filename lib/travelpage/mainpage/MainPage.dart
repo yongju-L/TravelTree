@@ -3,11 +3,16 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:traveltree/services/LocationService.dart';
 import 'package:traveltree/services/LocationTracking.dart';
-import 'package:traveltree/widgets/NavigationHelper.dart';
+import 'package:traveltree/widgets/TravelNavigation.dart';
 import 'package:traveltree/widgets/TransportationModal.dart';
 
 class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+  final int travelId; // 여행 고유 ID 추가
+
+  const MainPage({
+    super.key,
+    required this.travelId, // travelId를 필수 매개변수로 추가
+  });
 
   @override
   _MainPageState createState() => _MainPageState();
@@ -38,22 +43,22 @@ class _MainPageState extends State<MainPage> {
     await _locationService.requestLocationPermission(context);
 
     _locationTracking.initializeTracking((controller) {
-      if (!mounted) return; // dispose 상태 확인
+      if (!mounted) return;
       setState(() {});
     });
 
     try {
       Position position = await _locationService.getCurrentPosition();
-      if (_isDisposed) return; // dispose 상태 확인
+      if (_isDisposed) return;
       _locationTracking.addPath(LatLng(position.latitude, position.longitude));
 
-      if (!mounted) return; // dispose 상태 확인
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasInitializedPosition = true;
       });
     } catch (error) {
-      if (_isDisposed) return; // dispose 상태 확인
+      if (_isDisposed) return;
       print("위치 가져오기 실패: $error");
       _showErrorDialog();
     }
@@ -65,7 +70,7 @@ class _MainPageState extends State<MainPage> {
       return;
     }
 
-    if (!mounted) return; // dispose 상태 확인
+    if (!mounted) return;
     setState(() {
       if (!_transportationData.containsKey(mode)) {
         _transportationData[mode] = {'distance': 0.0, 'duration': 0};
@@ -77,7 +82,7 @@ class _MainPageState extends State<MainPage> {
   }
 
   void _showErrorDialog() {
-    if (!mounted) return; // dispose 상태 확인
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -93,11 +98,15 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  String _formatDistanceAndTime(double distance, int duration) {
+    return '거리: ${distance.toStringAsFixed(2)}km, 시간: ${duration ~/ 60}분';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Timeline Map'),
+        title: const Text('TravelTree'),
         actions: [
           IconButton(
             icon: const Icon(Icons.directions_car),
@@ -127,13 +136,17 @@ class _MainPageState extends State<MainPage> {
                 );
               },
             ),
-      bottomNavigationBar: buildBottomNavigationBar(context, 0),
+      bottomNavigationBar: buildBottomNavigationBar(
+        context,
+        0,
+        widget.travelId, // travelId 전달
+      ),
     );
   }
 
   @override
   void dispose() {
-    _isDisposed = true; // dispose 상태를 true로 설정
+    _isDisposed = true;
     _locationTracking.dispose();
     super.dispose();
   }

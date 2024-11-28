@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:traveltree/helpers/ScheduleDatabaseHelper.dart';
 
 class WeeklySchedulePage extends StatefulWidget {
-  const WeeklySchedulePage({super.key});
+  final int travelId; // travelId 추가
+
+  const WeeklySchedulePage({super.key, required this.travelId});
 
   @override
   _WeeklySchedulePageState createState() => _WeeklySchedulePageState();
@@ -29,7 +31,10 @@ class _WeeklySchedulePageState extends State<WeeklySchedulePage> {
 
     for (int i = 0; i <= 6; i++) {
       final currentDate = startOfWeek.add(Duration(days: i));
-      final dailySchedules = await _dbHelper.getSchedulesByDate(currentDate);
+      final dailySchedules = await _dbHelper.getSchedulesByDateAndTravelId(
+        currentDate,
+        widget.travelId, // travelId 사용
+      );
 
       for (final schedule in dailySchedules) {
         schedules.add({
