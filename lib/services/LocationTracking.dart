@@ -18,7 +18,8 @@ class LocationTracking {
 
   Function(String, double, int)? onTransportUpdate;
 
-  final String _apiKey = "YOUR_GOOGLE_MAPS_API_KEY"; // Google Maps API 키
+  final String _apiKey =
+      "AIzaSyDNJWIYY-Jtu8OCeal_EPOL2AaYeeJucvQ"; // Google Maps API 키
   LatLng? _lastCheckedPosition; // 마지막 도로 확인 위치
 
   void onMapCreated(GoogleMapController controller) {}
@@ -106,21 +107,18 @@ class LocationTracking {
 
   void addPath(LatLng position) {
     _pathCoordinates.add(position);
-    _lastKnownPosition = position;
-
-    // StreamController가 닫혔는지 확인
-    if (!_polylinesController.isClosed) {
-      _polylinesController.add({
-        Polyline(
-          polylineId: const PolylineId('path'),
-          points: _pathCoordinates,
-          color: Colors.blue,
-          width: 5,
-        ),
-      });
-    } else {
-      print("Cannot add events, StreamController is closed.");
+    if (_polylinesController.isClosed) {
+      print('Cannot add events, StreamController is closed.');
+      return;
     }
+    _polylinesController.add({
+      Polyline(
+        polylineId: const PolylineId('path'),
+        points: _pathCoordinates,
+        color: Colors.blue,
+        width: 5,
+      ),
+    });
   }
 
   void dispose() {

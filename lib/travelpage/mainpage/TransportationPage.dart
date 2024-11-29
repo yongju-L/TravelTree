@@ -1,14 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:traveltree/helpers/TransportationDatabaseHelper.dart';
 
-class TransportationPage extends StatelessWidget {
-  final Map<String, dynamic> transportationData;
+class TransportationPage extends StatefulWidget {
+  final int travelId; // travelId만 전달받음
 
-  const TransportationPage({super.key, required this.transportationData});
+  const TransportationPage({super.key, required this.travelId});
+
+  @override
+  _TransportationPageState createState() => _TransportationPageState();
+}
+
+class _TransportationPageState extends State<TransportationPage> {
+  final TransportationDatabaseHelper _dbHelper = TransportationDatabaseHelper();
+  final List<String> _modes = [
+    'Walking',
+    'Driving',
+    'Public Transport'
+  ]; // 고정된 이동 수단
+  Map<String, dynamic> _transportationData = {}; // DB에서 가져올 데이터
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeDatabase(); // 페이지가 로드될 때 DB에서 데이터 불러오기
+  }
+
+  Future<void> _initializeDatabase() async {
+    await _dbHelper.connect(); // 데이터베이스 연결
+    await _loadTransportationData(); // 데이터 로드
+  }
+
+  // DB에서 이동 수단 데이터를 불러오기
+  Future<void> _loadTransportationData() async {
+    try {
+      final data = await _dbHelper.getTransportationData(widget.travelId);
+
+      // 고정된 이동 수단(_modes)을 기준으로 데이터를 초기화
+      Map<String, dynamic> initialData = {
+        for (var mode in _modes) mode: {'distance': 0.0, 'duration': 0}
+      };
+
+      // DB에서 가져온 데이터를 초기 값에 병합
+      for (var entry in data) {
+        initialData[entry['mode']] = {
+          'distance': entry['distance'] ?? 0.0,
+          'duration': entry['duration'] ?? 0,
+        };
+      }
+
+      setState(() {
+        _transportationData = initialData;
+      });
+    } catch (e) {
+      print('Error loading transportation data: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return FractionallySizedBox(
-      heightFactor: 0.5, // 높이를 40%로 설정
+      heightFactor: 0.5, // 높이를 50%로 설정
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -40,11 +91,13 @@ class TransportationPage extends StatelessWidget {
             // 데이터 리스트
             Expanded(
               child: ListView.builder(
-                itemCount: transportationData.length,
+                itemCount: _modes.length, // 고정된 이동 수단 개수 사용
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
                 itemBuilder: (context, index) {
-                  String mode = transportationData.keys.elementAt(index);
-                  var data = transportationData[mode];
+                  String mode = _modes[index];
+                  var data = _transportationData[mode] ??
+                      {'distance': 0.0, 'duration': 0};
+
                   return Padding(
                     padding: const EdgeInsets.symmetric(
                         vertical: 8.0, horizontal: 14.0),
@@ -67,8 +120,7 @@ class TransportationPage extends StatelessWidget {
                           // 아이콘
                           CircleAvatar(
                             radius: 24, // 아이콘 크기 조정
-                            backgroundColor:
-                                Colors.black.withOpacity(0.1), // 연한 블랙 배경
+                            backgroundColor: Colors.black.withOpacity(0.1),
                             child: Icon(
                               _getModeIcon(mode),
                               color: Colors.black,
