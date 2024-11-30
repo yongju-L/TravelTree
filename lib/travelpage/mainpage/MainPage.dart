@@ -118,7 +118,7 @@ class _MainPageState extends State<MainPage> {
       ];
 
       // 병합된 Polyline 저장
-      await _pathDbHelper.savePolyline(widget.travelId, combinedPath);
+      await _pathDbHelper.upsertPolyline(widget.travelId, combinedPath);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Polyline 경로가 저장되었습니다.")),
@@ -197,9 +197,10 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
-  void _toggleTracking() {
+  void _toggleTracking() async {
     if (_isTrackingActive) {
-      // 추적 중지
+      // 추적 중지 및 저장
+      await _savePath();
       setState(() {
         _isTrackingActive = false;
       });
@@ -242,10 +243,6 @@ class _MainPageState extends State<MainPage> {
               TransportationModal.showTransportationModal(
                   context, widget.travelId); // travelId 전달
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _savePath, // 저장 버튼 클릭 시 경로 저장
           ),
         ],
       ),

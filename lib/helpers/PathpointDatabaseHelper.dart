@@ -19,7 +19,8 @@ class PathpointDatabaseHelper {
     }
   }
 
-  Future<void> savePolyline(int travelId, List<LatLng> polylinePoints) async {
+  /// travel_routes 테이블의 데이터를 업데이트 또는 삽입
+  Future<void> upsertPolyline(int travelId, List<LatLng> polylinePoints) async {
     try {
       // LatLng 리스트를 WKT LINESTRING 형식으로 변환
       final lineString = polylinePoints
@@ -29,6 +30,8 @@ class PathpointDatabaseHelper {
       const query = '''
         INSERT INTO travel_routes (travel_id, route)
         VALUES (@travelId, ST_GeomFromText(@lineString, 4326))
+        ON CONFLICT (travel_id)
+        DO UPDATE SET route = EXCLUDED.route
       ''';
 
       await connection.query(query, substitutionValues: {
@@ -36,20 +39,19 @@ class PathpointDatabaseHelper {
         'lineString': 'LINESTRING($lineString)',
       });
 
-      print('Polyline saved successfully.');
+      print('Polyline upserted successfully.');
     } catch (e) {
-      print('Error saving polyline: $e');
+      print('Error upserting polyline: $e');
     }
   }
 
+  /// travel_routes 테이블에서 특정 travel_id의 Polyline 데이터를 가져오기
   Future<List<LatLng>> getPolyline(int travelId) async {
     try {
       const query = '''
         SELECT ST_AsText(route) AS route
         FROM travel_routes
         WHERE travel_id = @travelId
-        ORDER BY id DESC
-        LIMIT 1
       ''';
 
       final results = await connection.query(query, substitutionValues: {

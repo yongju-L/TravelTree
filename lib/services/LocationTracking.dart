@@ -24,7 +24,7 @@ class LocationTracking {
 
   Future<void> savePathToDatabase(int travelId) async {
     if (_pathCoordinates.isNotEmpty && _dbHelper != null) {
-      await _dbHelper!.savePolyline(travelId, _pathCoordinates); // 비동기 작업 수행
+      await _dbHelper!.upsertPolyline(travelId, _pathCoordinates); // 비동기 작업 수행
     }
   }
 
