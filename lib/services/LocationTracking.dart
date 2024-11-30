@@ -4,7 +4,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
 
 class LocationTracking {
@@ -31,6 +30,9 @@ class LocationTracking {
 
   LatLng get currentPosition =>
       _lastKnownPosition ?? const LatLng(0, 0); // 초기 값은 0,0 (빈 위치)
+
+  // 현재 경로 반환
+  List<LatLng> get currentPath => _pathCoordinates;
 
   Function(String, double, int)? onTransportUpdate;
 

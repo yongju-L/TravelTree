@@ -111,13 +111,21 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _savePath() async {
     if (_isTrackingActive) {
-      await _locationTracking.savePathToDatabase(widget.travelId);
+      // 현재 Polyline과 이전에 저장된 Polyline 병합
+      List<LatLng> combinedPath = [
+        ..._savedPolylines.expand((polyline) => polyline.points), // 이전 Polyline
+        ..._locationTracking.currentPath // 현재 Polyline
+      ];
+
+      // 병합된 Polyline 저장
+      await _pathDbHelper.savePolyline(widget.travelId, combinedPath);
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Polyline 경로가 저장되었습니다.")),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("start버튼을 누르고 저장해주세요.")),
+        const SnackBar(content: Text("Start 버튼을 누르고 저장해주세요.")),
       );
     }
   }
