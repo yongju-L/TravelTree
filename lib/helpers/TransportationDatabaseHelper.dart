@@ -28,31 +28,25 @@ class TransportationDatabaseHelper {
       throw Exception('Database connection is not initialized.');
     }
 
-    // 기존 mode 데이터 삭제
-    await _connection!.query(
-      '''
-      DELETE FROM transportation
-      WHERE travel_id = @travelId AND mode = @mode
-      ''',
-      substitutionValues: {
-        'travelId': travelId,
-        'mode': mode,
-      },
-    );
+    // INSERT 또는 UPDATE 쿼리 실행
+    const query = '''
+      INSERT INTO transportation (travel_id, mode, distance, duration, timestamp)
+      VALUES (@travelId, @mode, @distance, @duration, NOW())
+      ON CONFLICT (travel_id, mode)
+      DO UPDATE SET
+        distance = EXCLUDED.distance,
+        duration = EXCLUDED.duration,
+        timestamp = NOW();
+    ''';
 
-    // 새 데이터 삽입
-    await _connection!.query(
-      '''
-      INSERT INTO transportation (travel_id, mode, distance, duration)
-      VALUES (@travelId, @mode, @distance, @duration)
-      ''',
-      substitutionValues: {
-        'travelId': travelId,
-        'mode': mode,
-        'distance': distance,
-        'duration': duration,
-      },
-    );
+    await _connection!.query(query, substitutionValues: {
+      'travelId': travelId,
+      'mode': mode,
+      'distance': distance,
+      'duration': duration,
+    });
+
+    print('Transportation data upserted successfully.');
   }
 
   // 특정 여행 ID와 모드별로 transportation 데이터 가져오기

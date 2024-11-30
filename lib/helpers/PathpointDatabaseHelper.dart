@@ -1,74 +1,83 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:postgres/postgres.dart';
 
 class PathpointDatabaseHelper {
-  PostgreSQLConnection? _connection;
+  final PostgreSQLConnection connection;
 
-  // PostgreSQL 데이터베이스 연결
+  PathpointDatabaseHelper()
+      : connection = PostgreSQLConnection(
+          '172.30.1.100', // PostgreSQL 호스트
+          5432, // 포트
+          'traveltree', // 데이터베이스 이름
+          username: 'postgres',
+          password: 'juyong03015!',
+        );
+
   Future<void> connect() async {
-    _connection = PostgreSQLConnection(
-      '172.30.1.100', // PostgreSQL 서버 주소
-      5432, // PostgreSQL 기본 포트
-      'traveltree', // 데이터베이스 이름
-      username: 'postgres', // 사용자 이름
-      password: 'juyong03015!', // 비밀번호
-    );
-
-    await _connection!.open();
-    print('PostgreSQL 데이터베이스 연결 성공');
+    if (connection.isClosed) {
+      await connection.open();
+    }
   }
 
-  // 경로 데이터를 삽입
-  Future<void> insertPathPoint({
-    required int travelId,
-    required double latitude,
-    required double longitude,
-  }) async {
-    if (_connection == null || _connection!.isClosed) {
-      throw Exception('Database connection is not initialized.');
-    }
+  Future<void> savePolyline(int travelId, List<LatLng> polylinePoints) async {
+    try {
+      // LatLng 리스트를 WKT LINESTRING 형식으로 변환
+      final lineString = polylinePoints
+          .map((point) => '${point.longitude} ${point.latitude}')
+          .join(', ');
 
-    await _connection!.query(
-      '''
-      INSERT INTO path_points (travel_id, latitude, longitude)
-      VALUES (@travelId, @latitude, @longitude)
-      ''',
-      substitutionValues: {
+      const query = '''
+        INSERT INTO travel_routes (travel_id, route)
+        VALUES (@travelId, ST_GeomFromText(@lineString, 4326))
+      ''';
+
+      await connection.query(query, substitutionValues: {
         'travelId': travelId,
-        'latitude': latitude,
-        'longitude': longitude,
-      },
-    );
+        'lineString': 'LINESTRING($lineString)',
+      });
+
+      print('Polyline saved successfully.');
+    } catch (e) {
+      print('Error saving polyline: $e');
+    }
   }
 
-  // 특정 여행 ID에 해당하는 경로 데이터를 가져오기
-  Future<List<Map<String, dynamic>>> getPathPoints(int travelId) async {
-    if (_connection == null || _connection!.isClosed) {
-      throw Exception('Database connection is not initialized.');
+  Future<List<LatLng>> getPolyline(int travelId) async {
+    try {
+      const query = '''
+        SELECT ST_AsText(route) AS route
+        FROM travel_routes
+        WHERE travel_id = @travelId
+        ORDER BY id DESC
+        LIMIT 1
+      ''';
+
+      final results = await connection.query(query, substitutionValues: {
+        'travelId': travelId,
+      });
+
+      if (results.isNotEmpty) {
+        final wkt = results.first[0] as String;
+        return _parseLineString(wkt);
+      }
+    } catch (e) {
+      print('Error fetching polyline: $e');
     }
+    return [];
+  }
 
-    final result = await _connection!.query(
-      '''
-      SELECT latitude, longitude
-      FROM path_points
-      WHERE travel_id = @travelId
-      ORDER BY id ASC
-      ''',
-      substitutionValues: {'travelId': travelId},
-    );
-
-    return result.map((row) {
-      return {
-        'latitude': row[0] as double,
-        'longitude': row[1] as double,
-      };
+  List<LatLng> _parseLineString(String wkt) {
+    // WKT "LINESTRING(lon1 lat1, lon2 lat2, ...)"을 LatLng 리스트로 변환
+    final coordinates = wkt.replaceAll('LINESTRING(', '').replaceAll(')', '');
+    return coordinates.split(',').map((coord) {
+      final parts = coord.trim().split(' ');
+      final lon = double.parse(parts[0]);
+      final lat = double.parse(parts[1]);
+      return LatLng(lat, lon);
     }).toList();
   }
 
-  // PostgreSQL 연결 종료
   Future<void> close() async {
-    if (_connection != null && !_connection!.isClosed) {
-      await _connection!.close();
-      print('PostgreSQL 연결 종료');
-    }
+    await connection.close();
   }
 }

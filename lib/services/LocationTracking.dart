@@ -5,6 +5,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
+
 class LocationTracking {
   final _polylinesController = StreamController<Set<Polyline>>.broadcast();
   Stream<Set<Polyline>> get polylinesStream => _polylinesController.stream;
@@ -12,6 +14,20 @@ class LocationTracking {
   final List<LatLng> _pathCoordinates = [];
   LatLng? _lastKnownPosition;
   DateTime? _lastTimestamp;
+
+  PathpointDatabaseHelper? _dbHelper;
+  StreamSubscription<Position>? _positionStreamSubscription; // 스트림 구독 관리
+
+  void initializePathDatabase() async {
+    _dbHelper = PathpointDatabaseHelper();
+    await _dbHelper!.connect();
+  }
+
+  Future<void> savePathToDatabase(int travelId) async {
+    if (_pathCoordinates.isNotEmpty && _dbHelper != null) {
+      await _dbHelper!.savePolyline(travelId, _pathCoordinates); // 비동기 작업 수행
+    }
+  }
 
   LatLng get currentPosition =>
       _lastKnownPosition ?? const LatLng(0, 0); // 초기 값은 0,0 (빈 위치)
@@ -25,7 +41,12 @@ class LocationTracking {
   void onMapCreated(GoogleMapController controller) {}
 
   void initializeTracking(void Function(GoogleMapController) onMapReady) {
-    Geolocator.getPositionStream().listen((position) async {
+    // 기존 스트림 구독 취소
+    _cancelPositionStream();
+
+    // 새 스트림 구독 시작
+    _positionStreamSubscription =
+        Geolocator.getPositionStream().listen((position) async {
       if (_lastKnownPosition != null) {
         final currentLatLng = LatLng(position.latitude, position.longitude);
         final distance = Geolocator.distanceBetween(
@@ -50,6 +71,13 @@ class LocationTracking {
         _lastTimestamp = DateTime.now();
       }
     });
+  }
+
+  void _cancelPositionStream() {
+    if (_positionStreamSubscription != null) {
+      _positionStreamSubscription!.cancel(); // 기존 스트림 구독 취소
+      _positionStreamSubscription = null;
+    }
   }
 
   Future<String> _determineTransportMode(
@@ -125,5 +153,7 @@ class LocationTracking {
     if (!_polylinesController.isClosed) {
       _polylinesController.close();
     }
+    _cancelPositionStream(); // 스트림 구독 취소
+    _dbHelper?.close();
   }
 }

@@ -23,15 +23,14 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final LocationTracking _locationTracking = LocationTracking();
   final LocationService _locationService = LocationService();
-  final PathpointDatabaseHelper _dbHelper = PathpointDatabaseHelper();
+  final PathpointDatabaseHelper _pathDbHelper = PathpointDatabaseHelper();
   final TransportationDatabaseHelper _trandbHelper =
       TransportationDatabaseHelper();
 
   bool _isLoading = true;
-  Set<Polyline> _polylines = {};
-  List<LatLng> _pathCoordinates = [];
   bool _hasInitializedPosition = false;
   bool _isDisposed = false; // dispose 상태를 추적
+  bool _isTrackingActive = false; // Start 버튼 상태를 나타내는 변수
 
   final Map<String, dynamic> _transportationData = {
     'Walking': {'distance': 0.0, 'duration': 0},
@@ -39,62 +38,88 @@ class _MainPageState extends State<MainPage> {
     'Public Transport': {'distance': 0.0, 'duration': 0},
   };
 
+  LatLng _initialPosition = const LatLng(37.7749, -122.4194); // 기본값: 샌프란시스코
+  Set<Polyline> _savedPolylines = {}; // 저장된 polyline 데이터를 보관
+
   @override
   void initState() {
     super.initState();
-    _initializeDatabase();
-    _initializeLocation();
-    _locationTracking.onTransportUpdate = _updateTransportData;
+    _requestLocationPermission();
   }
 
-  Future<void> _loadSavedPath() async {
-    final pathData = await _dbHelper.getPathPoints(widget.travelId);
-    setState(() {
-      _pathCoordinates = pathData
-          .map((point) => LatLng(point['latitude'], point['longitude']))
-          .toList();
-      _polylines = {
-        Polyline(
-          polylineId: const PolylineId('path'),
-          points: _pathCoordinates,
-          color: Colors.blue,
-          width: 5,
-        ),
-      };
-      _isLoading = false;
-    });
+  Future<void> _requestLocationPermission() async {
+    final hasPermission =
+        await _locationService.requestLocationPermission(context);
+    if (!hasPermission) {
+      return; // 권한이 없으면 초기화 중단
+    }
+
+    await _initializeMainPage();
   }
 
-  void _initializeTracking() {
-    _locationTracking.initializeTracking((controller) {});
-    Geolocator.getPositionStream().listen((position) async {
-      LatLng currentPosition = LatLng(position.latitude, position.longitude);
+  Future<void> _initializeMainPage() async {
+    await _setInitialPosition(); // 초기 위치 설정
+    await _loadSavedPolylines(); // 저장된 Polyline 불러오기
+    await _initializeLocation();
+    await _initializeTranDatabase(); // 교통 데이터 초기화
+    if (_isTrackingActive) {
+      _initializeTracking(); // 실시간 경로 그리기 시작
+    }
+  }
+
+  Future<void> _setInitialPosition() async {
+    try {
+      Position position = await _locationService.getCurrentPosition();
       setState(() {
-        _pathCoordinates.add(currentPosition);
-        _polylines = {
-          Polyline(
-            polylineId: const PolylineId('path'),
-            points: _pathCoordinates,
+        _initialPosition = LatLng(position.latitude, position.longitude);
+        _hasInitializedPosition = true; // 위치 초기화 완료
+      });
+    } catch (e) {
+      print('초기 위치를 가져오는 데 실패했습니다: $e');
+      // 초기 위치를 가져오는 데 실패하면 기본값 유지
+      setState(() {
+        _hasInitializedPosition = true; // 기본 위치로 초기화 완료
+      });
+    }
+  }
+
+  Future<void> _loadSavedPolylines() async {
+    try {
+      await _pathDbHelper.connect();
+      final savedPolylinePoints =
+          await _pathDbHelper.getPolyline(widget.travelId);
+
+      if (savedPolylinePoints.isNotEmpty) {
+        setState(() {
+          _savedPolylines.add(Polyline(
+            polylineId: const PolylineId('savedPath'),
+            points: savedPolylinePoints,
             color: Colors.blue,
             width: 5,
-          ),
-        };
-      });
-
-      // DB에 경로 저장
-      await _dbHelper.insertPathPoint(
-        travelId: widget.travelId,
-        latitude: position.latitude,
-        longitude: position.longitude,
-      );
-    });
+          ));
+        });
+      }
+    } catch (e) {
+      print('Error loading saved polylines: $e');
+    }
   }
 
-  Future<void> _initializeDatabase() async {
+  Future<void> _initializeTranDatabase() async {
     await _trandbHelper.connect();
-    await _dbHelper.connect();
-    await _loadSavedPath();
     await _loadTransportationData();
+  }
+
+  Future<void> _savePath() async {
+    if (_isTrackingActive) {
+      await _locationTracking.savePathToDatabase(widget.travelId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Polyline 경로가 저장되었습니다.")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("start버튼을 누르고 저장해주세요.")),
+      );
+    }
   }
 
   Future<void> _loadTransportationData() async {
@@ -110,19 +135,17 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _initializeLocation() async {
-    await _locationService.requestLocationPermission(context);
-
-    _locationTracking.initializeTracking((controller) {
-      if (!mounted) return;
-      setState(() {});
-    });
+    Position position = await _locationService.getCurrentPosition();
 
     try {
-      Position position = await _locationService.getCurrentPosition();
       if (_isDisposed) return;
-      _locationTracking.addPath(LatLng(position.latitude, position.longitude));
 
-      if (!mounted) return;
+      if (_isTrackingActive) {
+        // Polyline 추가는 Start 버튼이 눌린 경우에만
+        _locationTracking
+            .addPath(LatLng(position.latitude, position.longitude));
+      }
+
       setState(() {
         _isLoading = false;
         _hasInitializedPosition = true;
@@ -130,34 +153,56 @@ class _MainPageState extends State<MainPage> {
     } catch (error) {
       if (_isDisposed) return;
       print("위치 가져오기 실패: $error");
-      _showErrorDialog();
     }
+  }
+
+  void _initializeTracking() {
+    if (!_isTrackingActive) return;
+
+    _locationTracking.initializeTracking((controller) {
+      setState(() {}); // 실시간 경로 반영
+    });
+    _locationTracking.initializePathDatabase();
+    _locationTracking.onTransportUpdate = _updateTransportData;
   }
 
   Future<void> _updateTransportData(
       String mode, double distance, int duration) async {
-    if (mode == 'Unknown') return; // Unknown 데이터는 저장하지 않음
-
-    if (!mounted) return;
+    if (!_isTrackingActive || mode == 'Unknown') {
+      return; // Start 버튼이 눌리지 않았거나 Unknown이면 무시
+    }
 
     setState(() {
       if (!_transportationData.containsKey(mode)) {
         _transportationData[mode] = {'distance': 0.0, 'duration': 0};
       }
-
-      _transportationData[mode]['distance'] =
-          (_transportationData[mode]['distance'] as double) + distance;
-      _transportationData[mode]['duration'] =
-          (_transportationData[mode]['duration'] as int) + duration;
+      _transportationData[mode]!['distance'] += distance;
+      _transportationData[mode]!['duration'] += duration;
     });
 
     // DB에 데이터 저장
     await _trandbHelper.upsertTransportationData(
       travelId: widget.travelId,
       mode: mode,
-      distance: _transportationData[mode]['distance'] as double,
-      duration: _transportationData[mode]['duration'] as int,
+      distance: _transportationData[mode]!['distance'],
+      duration: _transportationData[mode]!['duration'],
     );
+  }
+
+  void _toggleTracking() {
+    if (_isTrackingActive) {
+      // 추적 중지
+      setState(() {
+        _isTrackingActive = false;
+      });
+      _locationTracking.dispose();
+    } else {
+      // 추적 시작
+      setState(() {
+        _isTrackingActive = true;
+      });
+      _initializeTracking();
+    }
   }
 
   void _showErrorDialog() {
@@ -187,52 +232,55 @@ class _MainPageState extends State<MainPage> {
             icon: const Icon(Icons.directions_car),
             onPressed: () {
               TransportationModal.showTransportationModal(
-                  context, widget.travelId); // travelId만 전달
+                  context, widget.travelId); // travelId 전달
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _savePath, // 저장 버튼 클릭 시 경로 저장
           ),
         ],
       ),
-      body: _isLoading || !_hasInitializedPosition
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : Stack(
-              children: [
-                GoogleMap(
-                  onMapCreated: _locationTracking.onMapCreated,
-                  initialCameraPosition: CameraPosition(
-                    target: _pathCoordinates.isNotEmpty
-                        ? _pathCoordinates.first
-                        : _locationTracking
-                            .currentPosition, // 데이터베이스의 첫 좌표 또는 현재 위치
-                    zoom: 15,
-                  ),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  polylines: _polylines, // 데이터베이스에서 불러온 경로
-                ),
-                StreamBuilder<Set<Polyline>>(
+      body: Stack(
+        children: [
+          _isLoading || !_hasInitializedPosition
+              ? const Center(
+                  child: CircularProgressIndicator(),
+                )
+              : StreamBuilder<Set<Polyline>>(
                   stream: _locationTracking.polylinesStream,
                   builder: (context, snapshot) {
-                    // Polyline 추가: 실시간 데이터 + 데이터베이스 데이터 결합
-                    final livePolylines = snapshot.data ?? {};
-                    final combinedPolylines = Set<Polyline>.of(_polylines)
-                      ..addAll(livePolylines);
+                    final polylines = {
+                      if (snapshot.hasData) ...snapshot.data!,
+                      ..._savedPolylines,
+                    };
 
                     return GoogleMap(
                       onMapCreated: _locationTracking.onMapCreated,
                       initialCameraPosition: CameraPosition(
-                        target: _locationTracking.currentPosition,
+                        target: _initialPosition,
                         zoom: 15,
                       ),
                       myLocationEnabled: true,
                       myLocationButtonEnabled: true,
-                      polylines: combinedPolylines, // 결합된 Polyline
+                      polylines: polylines,
                     );
                   },
                 ),
-              ],
+          Positioned(
+            bottom: 20,
+            left: 20,
+            child: FloatingActionButton(
+              onPressed: _toggleTracking,
+              backgroundColor: _isTrackingActive ? Colors.red : Colors.green,
+              child: Text(
+                _isTrackingActive ? 'Stop' : 'Start',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
             ),
+          ),
+        ],
+      ),
       bottomNavigationBar: buildBottomNavigationBar(
         context,
         0,
@@ -245,6 +293,7 @@ class _MainPageState extends State<MainPage> {
   void dispose() {
     _isDisposed = true;
     _locationTracking.dispose();
+    _pathDbHelper.close();
     super.dispose();
   }
 }
