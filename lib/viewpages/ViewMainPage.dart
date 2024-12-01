@@ -20,6 +20,7 @@ class _ViewMainPageState extends State<ViewMainPage> {
   List<Marker> _markers = [];
   LatLng? _initialPosition; // 사용자 처음 위치를 저장
   bool _isLoading = true; // 로딩 상태
+  bool _hasData = false; // 경로 데이터 존재 여부
 
   @override
   void initState() {
@@ -33,17 +34,19 @@ class _ViewMainPageState extends State<ViewMainPage> {
     final polylinePoints = await _pathDbHelper.getPolyline(widget.travelId);
     setState(() {
       _polylines = {
-        Polyline(
-          polylineId: const PolylineId('savedRoute'),
-          points: polylinePoints,
-          color: Colors.blue,
-          width: 5,
-        ),
+        if (polylinePoints.isNotEmpty)
+          Polyline(
+            polylineId: const PolylineId('savedRoute'),
+            points: polylinePoints,
+            color: Colors.blue,
+            width: 5,
+          ),
       };
 
       // 사용자 처음 위치를 Polyline의 첫 번째 포인트로 설정
       if (polylinePoints.isNotEmpty) {
         _initialPosition = polylinePoints.first;
+        _hasData = true; // 데이터가 있음을 표시
       }
     });
 
@@ -85,23 +88,30 @@ class _ViewMainPageState extends State<ViewMainPage> {
           ),
         ],
       ),
-      body: _isLoading || _initialPosition == null
+      body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(), // 로딩 화면
             )
-          : Stack(
-              children: [
-                GoogleMap(
-                  initialCameraPosition: CameraPosition(
-                    target: _initialPosition!,
-                    zoom: 15,
+          : (!_hasData
+              ? const Center(
+                  child: Text(
+                    '저장된 경로가 없습니다.',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
-                  myLocationEnabled: false, // 읽기 전용이므로 위치 비활성화
-                  markers: Set<Marker>.of(_markers),
-                  polylines: _polylines,
-                ),
-              ],
-            ),
+                )
+              : Stack(
+                  children: [
+                    GoogleMap(
+                      initialCameraPosition: CameraPosition(
+                        target: _initialPosition!,
+                        zoom: 15,
+                      ),
+                      myLocationEnabled: false, // 읽기 전용이므로 위치 비활성화
+                      markers: Set<Marker>.of(_markers),
+                      polylines: _polylines,
+                    ),
+                  ],
+                )),
       bottomNavigationBar: buildViewBottomNavigationBar(
         context,
         0,

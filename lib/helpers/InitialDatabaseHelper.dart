@@ -93,19 +93,24 @@ class InitialDatabaseHelper {
   // 최종 저장된 여행 데이터 가져오기
   Future<List<Map<String, dynamic>>> getFinalizedTravels(int userId) async {
     if (_connection == null || _connection!.isClosed) {
-      throw Exception('Database connection is not initialized.');
+      await connect(); // 연결이 초기화되지 않았으면 다시 연결
     }
 
     final result = await _connection!.query(
       '''
-      SELECT id, name, country, start_date, end_date
-      FROM travel
-      WHERE user_id = @user_id AND is_finalized = TRUE
-      ORDER BY start_date DESC
-      ''',
-      substitutionValues: {
-        'user_id': userId,
-      },
+    SELECT
+      travel.id,
+      travel.name,
+      travel.country,
+      travel.start_date,
+      travel.end_date,
+      users.username
+    FROM travel
+    JOIN users ON travel.user_id = users.id
+    WHERE travel.user_id = @userId
+    AND travel.is_finalized = true
+    ''',
+      substitutionValues: {'userId': userId},
     );
 
     return result.map((row) {
@@ -115,6 +120,7 @@ class InitialDatabaseHelper {
         'country': row[2],
         'start_date': row[3].toString(),
         'end_date': row[4].toString(),
+        'username': row[5],
       };
     }).toList();
   }
