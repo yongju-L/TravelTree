@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:traveltree/widgets/AppDrawer.dart';
 
 class PhotoPage extends StatefulWidget {
@@ -13,22 +14,52 @@ class PhotoPage extends StatefulWidget {
 }
 
 class _PhotoPageState extends State<PhotoPage> {
-  List<File> _photos = [];
-  final ImagePicker _picker = ImagePicker();
+  final PathpointDatabaseHelper _dbHelper = PathpointDatabaseHelper();
+  Map<String, List<File>> _photosByLocation = {}; // 장소별 사진 정렬 데이터
+  bool _isLoading = true;
 
-  // 앨범에서 사진 선택
-  Future<void> _pickImage() async {
+  @override
+  void initState() {
+    super.initState();
+    _loadPhotos();
+  }
+
+  Future<void> _loadPhotos() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+      await _dbHelper.connect();
+      final pins = await _dbHelper.getPins(widget.travelId);
 
-      if (image != null) {
-        setState(() {
-          _photos.add(File(image.path));
-        });
+      Map<String, List<File>> photosByLocation = {};
+
+      for (var pin in pins) {
+        final pinId = pin['id'];
+        final latitude = pin['latitude'];
+        final longitude = pin['longitude'];
+
+        // 장소명 얻기 (역지오코딩)
+        final placemarks = await placemarkFromCoordinates(latitude, longitude);
+        final place = placemarks.isNotEmpty
+            ? '${placemarks.first.country} ${placemarks.first.administrativeArea} ${placemarks.first.locality}'
+            : 'Unknown Location';
+
+        // 핀별 사진 가져오기
+        final photos = await _dbHelper.getPhotos(pinId);
+        final photoFiles =
+            photos.map((photo) => File(photo['photoPath'])).toList();
+
+        // 장소별로 사진 정렬
+        if (!photosByLocation.containsKey(place)) {
+          photosByLocation[place] = [];
+        }
+        photosByLocation[place]!.addAll(photoFiles);
       }
+
+      setState(() {
+        _photosByLocation = photosByLocation;
+        _isLoading = false;
+      });
     } catch (e) {
-      // 예외 처리 (사용자가 권한을 거부하거나 문제가 발생했을 경우)
-      print("Failed to pick image: $e");
+      print('Error loading photos: $e');
     }
   }
 
@@ -36,31 +67,59 @@ class _PhotoPageState extends State<PhotoPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Photo Gallery'),
+        title: const Text('Photo Gallery'),
       ),
       drawer: AppDrawer(travelId: widget.travelId), // AppDrawer에 travelId 전달
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: _pickImage,
-            child: Text('Add Photo from Gallery'),
-          ),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-              ),
-              itemCount: _photos.length,
-              itemBuilder: (context, index) {
-                return Image.file(
-                  _photos[index],
-                  fit: BoxFit.cover,
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _photosByLocation.isEmpty
+              ? const Center(child: Text('No photos available.'))
+              : ListView(
+                  children: _photosByLocation.entries.map((entry) {
+                    final location = entry.key;
+                    final photos = entry.value;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            '-$location-',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        GridView.builder(
+                          physics:
+                              const NeverScrollableScrollPhysics(), // 스크롤 비활성화
+                          shrinkWrap: true, // 부모 컨테이너 크기에 맞춤
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 4,
+                            mainAxisSpacing: 4,
+                          ),
+                          itemCount: photos.length,
+                          itemBuilder: (context, index) {
+                            return Image.file(
+                              photos[index],
+                              fit: BoxFit.cover,
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
     );
+  }
+
+  @override
+  void dispose() {
+    _dbHelper.close();
+    super.dispose();
   }
 }

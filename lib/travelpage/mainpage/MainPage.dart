@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:traveltree/helpers/InitialDatabaseHelper.dart';
 import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
 import 'package:traveltree/helpers/TransportationDatabaseHelper.dart';
@@ -41,6 +43,9 @@ class _MainPageState extends State<MainPage> {
     'Public Transport': {'distance': 0.0, 'duration': 0},
   };
 
+  final Set<Marker> _mapPins = {}; // 핀 데이터를 보관
+  final ImagePicker _picker = ImagePicker(); // 이미지 선택기
+
   LatLng _initialPosition = const LatLng(37.7749, -122.4194); // 기본값: 샌프란시스코
   final Set<Polyline> _savedPolylines = {}; // 저장된 polyline 데이터를 보관
 
@@ -68,6 +73,7 @@ class _MainPageState extends State<MainPage> {
     if (_isTrackingActive) {
       _initializeTracking(); // 실시간 경로 그리기 시작
     }
+    _loadMapPins();
   }
 
   Future<void> _setInitialPosition() async {
@@ -85,6 +91,171 @@ class _MainPageState extends State<MainPage> {
         // 초기 위치를 가져오는 데 실패하면 기본값 유지
         _hasInitializedPosition = true; // 기본 위치로 초기화 완료
       });
+    }
+  }
+
+  Future<void> _loadMapPins() async {
+    await _pathDbHelper.connect();
+    final pins = await _pathDbHelper.getPins(widget.travelId);
+    setState(() {
+      for (var pin in pins) {
+        _mapPins.add(
+          Marker(
+            markerId: MarkerId(pin['id'].toString()),
+            position: LatLng(pin['latitude'], pin['longitude']),
+            icon:
+                BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+            onTap: () => _showPinOptions(pin['id']),
+          ),
+        );
+      }
+    });
+  }
+
+  // 지도를 꾹 눌렀을 때 핀 추가
+  void _onMapLongPress(LatLng position) async {
+    final newPinId = await _pathDbHelper.addPin(
+      travelId: widget.travelId,
+      latitude: position.latitude,
+      longitude: position.longitude,
+    );
+
+    setState(() {
+      _mapPins.add(
+        Marker(
+          markerId: MarkerId(newPinId.toString()),
+          position: position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          onTap: () => _showPinOptions(newPinId),
+        ),
+      );
+    });
+  }
+
+  // 핀 옵션 다이얼로그 표시
+  Future<void> _showPinOptions(int pinId) async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.photo),
+            title: const Text('사진 추가'),
+            onTap: () => _addPhoto(pinId),
+          ),
+          ListTile(
+            leading: const Icon(Icons.image),
+            title: const Text('사진 보기'),
+            onTap: () {
+              Navigator.pop(context); // BottomSheet 닫기
+              _showPhotos(pinId); // 사진 보기 호출
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete, color: Colors.red),
+            title: const Text(
+              '핀 삭제',
+              style: TextStyle(color: Colors.red),
+            ),
+            onTap: () {
+              Navigator.pop(context); // BottomSheet 닫기
+              _confirmDeletePin(pinId); // 삭제 확인 다이얼로그 호출
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showPhotos(int pinId) async {
+    try {
+      final photos = await _pathDbHelper.getPhotos(pinId); // 핀에 저장된 사진 불러오기
+
+      if (photos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이 핀에 저장된 사진이 없습니다.')),
+        );
+        return;
+      }
+
+      showModalBottomSheet(
+        context: context,
+        builder: (context) => ListView.builder(
+          shrinkWrap: true,
+          itemCount: photos.length,
+          itemBuilder: (context, index) {
+            final photo = photos[index];
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Image.file(
+                File(photo['photoPath']), // 사진 경로에서 파일 로드
+                fit: BoxFit.cover,
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      print('Error fetching photos: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('사진을 불러오는 중 오류가 발생했습니다.')),
+      );
+    }
+  }
+
+  Future<void> _confirmDeletePin(int pinId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('핀 삭제'),
+        content: const Text('핀을 삭제하면 불러온 사진들도 사라집니다. 계속하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deletePin(pinId);
+    }
+  }
+
+  // 사진 추가
+  Future<void> _addPhoto(int pinId) async {
+    final XFile? photo = await _picker.pickImage(source: ImageSource.gallery);
+
+    if (photo != null) {
+      await _pathDbHelper.addPhoto(pinId: pinId, photoPath: photo.path);
+      Navigator.pop(context); // BottomSheet 닫기
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("사진이 추가되었습니다.")),
+      );
+    }
+  }
+
+  Future<void> _deletePin(int pinId) async {
+    try {
+      await _pathDbHelper.deletePin(pinId); // DB에서 핀 삭제
+      setState(() {
+        _mapPins
+            .removeWhere((marker) => marker.markerId.value == pinId.toString());
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('핀과 관련된 데이터가 삭제되었습니다.')),
+      );
+    } catch (e) {
+      print('Error deleting pin: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('핀 삭제 중 오류가 발생했습니다.')),
+      );
     }
   }
 
@@ -325,6 +496,8 @@ class _MainPageState extends State<MainPage> {
                       myLocationEnabled: true,
                       myLocationButtonEnabled: true,
                       polylines: polylines,
+                      markers: _mapPins, // 핀 데이터를 지도에 표시
+                      onLongPress: _onMapLongPress, // 꾹 누르기 이벤트 추가
                     );
                   },
                 ),
