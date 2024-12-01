@@ -3,7 +3,7 @@ import 'package:postgres/postgres.dart';
 class ScheduleDatabaseHelper {
   late PostgreSQLConnection _connection;
 
-  /// Connect to the PostgreSQL database.
+  /// PostgreSQL 연결
   Future<void> connect() async {
     _connection = PostgreSQLConnection(
       '172.30.1.100', // PostgreSQL 서버 주소
@@ -17,13 +17,13 @@ class ScheduleDatabaseHelper {
     print('PostgreSQL 연결 성공');
   }
 
-  /// Insert a schedule into the database.
+  /// 일정 삽입
   Future<int> insertSchedule({
     required String title,
     required String content,
     required bool completed,
     required DateTime date,
-    required int travelId, // travelId 추가
+    required int travelId,
   }) async {
     final result = await _connection.query(
       '''
@@ -36,14 +36,46 @@ class ScheduleDatabaseHelper {
         'content': content,
         'completed': completed,
         'date': date.toIso8601String(),
-        'travel_id': travelId, // travelId 값 전달
+        'travel_id': travelId,
       },
     );
 
-    return result.first[0] as int;
+    return result.first[0] as int; // 삽입된 데이터의 ID 반환
   }
 
-  /// Get schedules from the database for a specific date and travelId.
+  /// 특정 ID를 기준으로 일정 업데이트
+  Future<void> updateSchedule({
+    required int id,
+    required String title,
+    required String content,
+    required bool completed,
+    required DateTime date,
+    required int travelId,
+  }) async {
+    await _connection.query(
+      '''
+      UPDATE schedules
+      SET title = @title,
+          content = @content,
+          completed = @completed,
+          date = @date,
+          travel_id = @travel_id
+      WHERE id = @id
+      ''',
+      substitutionValues: {
+        'id': id,
+        'title': title,
+        'content': content,
+        'completed': completed,
+        'date': date.toIso8601String(),
+        'travel_id': travelId,
+      },
+    );
+
+    print('Schedule with ID $id updated');
+  }
+
+  /// 특정 날짜 및 여행 ID로 일정 가져오기
   Future<List<Map<String, dynamic>>> getSchedulesByDateAndTravelId(
       DateTime date, int travelId) async {
     final results = await _connection.mappedResultsQuery(
@@ -55,14 +87,14 @@ class ScheduleDatabaseHelper {
       ''',
       substitutionValues: {
         'date': date.toIso8601String(),
-        'travel_id': travelId, // travelId 조건 추가
+        'travel_id': travelId,
       },
     );
 
     return results.map((row) => row['schedules']!).toList();
   }
 
-  /// Delete a schedule from the database.
+  /// 특정 ID를 기준으로 일정 삭제
   Future<void> deleteSchedule(int id) async {
     await _connection.query(
       '''
@@ -70,10 +102,11 @@ class ScheduleDatabaseHelper {
       ''',
       substitutionValues: {'id': id},
     );
+
     print('Schedule with ID $id deleted');
   }
 
-  /// Close the database connection.
+  /// PostgreSQL 연결 종료
   Future<void> close() async {
     await _connection.close();
     print('PostgreSQL 연결 종료');

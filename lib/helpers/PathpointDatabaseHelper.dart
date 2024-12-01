@@ -2,20 +2,28 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:postgres/postgres.dart';
 
 class PathpointDatabaseHelper {
-  final PostgreSQLConnection connection;
+  PostgreSQLConnection? _connection;
 
-  PathpointDatabaseHelper()
-      : connection = PostgreSQLConnection(
-          '172.30.1.100', // PostgreSQL 호스트
-          5432, // 포트
-          'traveltree', // 데이터베이스 이름
-          username: 'postgres',
-          password: 'juyong03015!',
-        );
-
+  /// PostgreSQL 연결 설정
   Future<void> connect() async {
-    if (connection.isClosed) {
-      await connection.open();
+    // 기존 연결이 닫혀 있거나 없을 경우 새 연결 생성
+    if (_connection == null || _connection!.isClosed) {
+      _connection = PostgreSQLConnection(
+        '172.30.1.100', // PostgreSQL 호스트
+        5432, // 포트
+        'traveltree', // 데이터베이스 이름
+        username: 'postgres',
+        password: 'juyong03015!',
+      );
+      try {
+        await _connection!.open();
+        print('PostgreSQL 연결 성공');
+      } catch (e) {
+        print('PostgreSQL 연결 실패: $e');
+        rethrow;
+      }
+    } else {
+      print('PostgreSQL 연결 이미 활성화됨');
     }
   }
 
@@ -33,14 +41,14 @@ class PathpointDatabaseHelper {
         DO UPDATE SET route = EXCLUDED.route
       ''';
 
-      await connection.query(query, substitutionValues: {
+      await _connection!.query(query, substitutionValues: {
         'travelId': travelId,
         'lineString': 'LINESTRING($lineString)',
       });
 
-      print('Polyline upserted successfully.');
+      print('Polyline 업로드 성공');
     } catch (e) {
-      print('Error upserting polyline: $e');
+      print('Polyline 업로드 실패: $e');
     }
   }
 
@@ -53,7 +61,7 @@ class PathpointDatabaseHelper {
         WHERE travel_id = @travelId
       ''';
 
-      final results = await connection.query(query, substitutionValues: {
+      final results = await _connection!.query(query, substitutionValues: {
         'travelId': travelId,
       });
 
@@ -62,7 +70,7 @@ class PathpointDatabaseHelper {
         return _parseLineString(wkt);
       }
     } catch (e) {
-      print('Error fetching polyline: $e');
+      print('Polyline 가져오기 실패: $e');
     }
     return [];
   }
@@ -77,14 +85,14 @@ class PathpointDatabaseHelper {
     }).toList();
   }
 
-  /// map_pins 테이블에 핀 추가 (PostGIS)
+  /// map_pins 테이블에 핀 추가
   Future<int> addPin({
     required int travelId,
     required double latitude,
     required double longitude,
   }) async {
     try {
-      final result = await connection.query(
+      final result = await _connection!.query(
         '''
         INSERT INTO map_pins (location, travel_id)
         VALUES (ST_SetSRID(ST_MakePoint(@lng, @lat), 4326), @travelId)
@@ -99,7 +107,7 @@ class PathpointDatabaseHelper {
 
       return result.first[0] as int; // 반환된 ID
     } catch (e) {
-      print('Error adding pin: $e');
+      print('핀 추가 실패: $e');
       return -1; // 실패 시 -1 반환
     }
   }
@@ -107,7 +115,7 @@ class PathpointDatabaseHelper {
   /// map_pins 테이블에서 특정 travel_id의 핀 가져오기
   Future<List<Map<String, dynamic>>> getPins(int travelId) async {
     try {
-      final result = await connection.query(
+      final result = await _connection!.query(
         '''
         SELECT id, ST_X(location) AS longitude, ST_Y(location) AS latitude
         FROM map_pins
@@ -124,21 +132,22 @@ class PathpointDatabaseHelper {
         };
       }).toList();
     } catch (e) {
-      print('Error fetching pins: $e');
+      print('핀 가져오기 실패: $e');
       return [];
     }
   }
 
+  /// map_pins 테이블에서 핀 삭제
   Future<void> deletePin(int pinId) async {
     try {
-      await connection.query(
+      await _connection!.query(
         'DELETE FROM map_pins WHERE id = @pinId',
         substitutionValues: {'pinId': pinId},
       );
-      print('Pin deleted successfully.');
+      print('핀 삭제 성공');
     } catch (e) {
-      print('Error deleting pin: $e');
-      throw Exception('Failed to delete pin.');
+      print('핀 삭제 실패: $e');
+      throw Exception('핀 삭제 실패');
     }
   }
 
@@ -148,7 +157,7 @@ class PathpointDatabaseHelper {
     required String photoPath,
   }) async {
     try {
-      await connection.query(
+      await _connection!.query(
         '''
         INSERT INTO photo (pin_id, photo_path)
         VALUES (@pinId, @photoPath)
@@ -159,15 +168,16 @@ class PathpointDatabaseHelper {
         },
       );
 
-      print('Photo added successfully.');
+      print('사진 추가 성공');
     } catch (e) {
-      print('Error adding photo: $e');
+      print('사진 추가 실패: $e');
     }
   }
 
+  /// photo 테이블에서 특정 핀에 연결된 사진 가져오기
   Future<List<Map<String, dynamic>>> getPhotos(int pinId) async {
     try {
-      final result = await connection.query(
+      final result = await _connection!.query(
         '''
       SELECT id, photo_path
       FROM photo
@@ -183,12 +193,31 @@ class PathpointDatabaseHelper {
         };
       }).toList();
     } catch (e) {
-      print('Error fetching photos: $e');
+      print('사진 가져오기 실패: $e');
       return [];
     }
   }
 
+  /// photo 테이블에서 특정 사진 ID 삭제
+  Future<void> deletePhoto(int photoId) async {
+    try {
+      await _connection!.query(
+        '''
+        DELETE FROM photo WHERE id = @photoId
+        ''',
+        substitutionValues: {'photoId': photoId},
+      );
+      print('사진 삭제 성공');
+    } catch (e) {
+      print('사진 삭제 실패: $e');
+    }
+  }
+
+  /// PostgreSQL 연결 닫기
   Future<void> close() async {
-    await connection.close();
+    if (_connection != null && !_connection!.isClosed) {
+      await _connection!.close();
+      print('PostgreSQL 연결 닫기 성공');
+    }
   }
 }

@@ -144,31 +144,25 @@ class _ScheduleManagementPageState extends State<ScheduleManagementPage> {
   }
 
   void _toggleCompletion(int index) async {
-    final toggledItem = _schedules[index];
-    final wasCompleted = toggledItem['completed'];
-    toggledItem['completed'] = !wasCompleted;
+    final schedule = _schedules[index];
+    final newCompletedState = !schedule['completed'];
 
     final dbHelper = ScheduleDatabaseHelper();
     await dbHelper.connect();
 
-    // DB에서 기존 데이터 삭제
-    await dbHelper.deleteSchedule(toggledItem['id']);
-
-    // 기존 데이터를 유지하며 상태 변경 후 새로 삽입
-    final newId = await dbHelper.insertSchedule(
-      title: toggledItem['title'],
-      content: toggledItem['content'],
-      completed: toggledItem['completed'], // 변경된 상태로 저장
-      date: toggledItem['date'], // 기존 날짜 유지
-      travelId: widget.travelId, // travelId 전달
+    // DB에서 완료 상태 업데이트
+    await dbHelper.updateSchedule(
+      id: schedule['id'],
+      title: schedule['title'],
+      content: schedule['content'],
+      completed: newCompletedState,
+      date: _selectedDate,
+      travelId: widget.travelId,
     );
 
-    // UI 갱신 (id 업데이트)
+    // UI 갱신
     setState(() {
-      _schedules[index] = {
-        ...toggledItem,
-        'id': newId, // 새로운 ID 반영
-      };
+      _schedules[index]['completed'] = newCompletedState;
     });
   }
 

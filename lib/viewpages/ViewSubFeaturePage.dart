@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:traveltree/travelpage/subfeaturepage/PhotoPage.dart';
-import 'package:traveltree/widgets/TravelNavigation.dart';
-import 'package:traveltree/travelpage/subfeaturepage/ExpenseManagementPage.dart';
-import 'package:traveltree/travelpage/subfeaturepage/ScheduleManagementPage.dart';
+import 'package:traveltree/viewpages/ViewExpenseManagementPage.dart';
+import 'package:traveltree/viewpages/ViewPhotoPage.dart';
+import 'package:traveltree/viewpages/ViewScheduleManagementPage.dart';
+import 'package:traveltree/widgets/ViewNavigation.dart';
 
-class SubFeaturePage extends StatelessWidget {
-  final int travelId; // travelId만 받도록 수정
+class ViewSubFeaturePage extends StatelessWidget {
+  final int travelId; // travelId 추가
 
-  const SubFeaturePage({
+  const ViewSubFeaturePage({
     super.key,
     required this.travelId,
   });
@@ -16,7 +16,7 @@ class SubFeaturePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Sub Features for Travel ID: $travelId'), // travelId 출력
+        title: Text('View Features for Travel ID: $travelId'),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -25,13 +25,13 @@ class SubFeaturePage extends StatelessWidget {
           children: [
             _buildFeatureButton(
               context,
-              label: '경비관리',
+              label: '경비 보기',
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ExpenseManagementPage(
-                        travelId: travelId), // travelId 전달
+                    builder: (context) =>
+                        ViewExpenseManagementPage(travelId: travelId),
                   ),
                 );
               },
@@ -39,13 +39,13 @@ class SubFeaturePage extends StatelessWidget {
             const SizedBox(height: 20),
             _buildFeatureButton(
               context,
-              label: '일정관리',
+              label: '일정 보기',
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ScheduleManagementPage(
-                        travelId: travelId), // travelId 전달
+                    builder: (context) =>
+                        ViewScheduleManagementPage(travelId: travelId),
                   ),
                 );
               },
@@ -58,7 +58,7 @@ class SubFeaturePage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => PhotoPage(travelId: travelId),
+                    builder: (context) => ViewPhotoPage(travelId: travelId),
                   ),
                 );
               },
@@ -66,9 +66,9 @@ class SubFeaturePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: buildBottomNavigationBar(
+      bottomNavigationBar: buildViewBottomNavigationBar(
         context,
-        1,
+        0,
         travelId, // travelId 전달
       ),
     );

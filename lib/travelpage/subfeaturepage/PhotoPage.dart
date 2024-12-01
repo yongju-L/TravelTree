@@ -15,7 +15,8 @@ class PhotoPage extends StatefulWidget {
 
 class _PhotoPageState extends State<PhotoPage> {
   final PathpointDatabaseHelper _dbHelper = PathpointDatabaseHelper();
-  Map<String, List<File>> _photosByLocation = {}; // 장소별 사진 정렬 데이터
+  Map<String, List<Map<String, dynamic>>> _photosByLocation =
+      {}; // 장소별 사진 정렬 데이터
   bool _isLoading = true;
 
   @override
@@ -29,7 +30,7 @@ class _PhotoPageState extends State<PhotoPage> {
       await _dbHelper.connect();
       final pins = await _dbHelper.getPins(widget.travelId);
 
-      Map<String, List<File>> photosByLocation = {};
+      Map<String, List<Map<String, dynamic>>> photosByLocation = {};
 
       for (var pin in pins) {
         final pinId = pin['id'];
@@ -44,14 +45,18 @@ class _PhotoPageState extends State<PhotoPage> {
 
         // 핀별 사진 가져오기
         final photos = await _dbHelper.getPhotos(pinId);
-        final photoFiles =
-            photos.map((photo) => File(photo['photoPath'])).toList();
+        final photoData = photos
+            .map((photo) => {
+                  'id': photo['id'],
+                  'photoPath': photo['photoPath'],
+                })
+            .toList();
 
         // 장소별로 사진 정렬
         if (!photosByLocation.containsKey(place)) {
           photosByLocation[place] = [];
         }
-        photosByLocation[place]!.addAll(photoFiles);
+        photosByLocation[place]!.addAll(photoData);
       }
 
       setState(() {
@@ -60,6 +65,38 @@ class _PhotoPageState extends State<PhotoPage> {
       });
     } catch (e) {
       print('Error loading photos: $e');
+    }
+  }
+
+  Future<void> _deletePhoto(
+      int photoId, String photoPath, String location) async {
+    try {
+      // DB에서 사진 삭제
+      await _dbHelper.deletePhoto(photoId);
+
+      // 로컬 파일 삭제
+      final file = File(photoPath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      // UI 갱신
+      setState(() {
+        _photosByLocation[location]
+            ?.removeWhere((photo) => photo['id'] == photoId);
+        if (_photosByLocation[location]?.isEmpty ?? true) {
+          _photosByLocation.remove(location); // 장소에 사진이 없으면 제거
+        }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('사진이 삭제되었습니다.')),
+      );
+    } catch (e) {
+      print('Error deleting photo: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('사진 삭제 중 오류가 발생했습니다.')),
+      );
     }
   }
 
@@ -73,7 +110,7 @@ class _PhotoPageState extends State<PhotoPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _photosByLocation.isEmpty
-              ? const Center(child: Text('No photos available.'))
+              ? const Center(child: Text('불러올 사진이 없습니다.'))
               : ListView(
                   children: _photosByLocation.entries.map((entry) {
                     final location = entry.key;
@@ -104,9 +141,39 @@ class _PhotoPageState extends State<PhotoPage> {
                           ),
                           itemCount: photos.length,
                           itemBuilder: (context, index) {
-                            return Image.file(
-                              photos[index],
-                              fit: BoxFit.cover,
+                            final photo = photos[index];
+
+                            return GestureDetector(
+                              onLongPress: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text("삭제 확인"),
+                                    content: const Text("이 사진을 삭제하시겠습니까?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("취소"),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                          _deletePhoto(
+                                            photo['id'],
+                                            photo['photoPath'],
+                                            location,
+                                          );
+                                        },
+                                        child: const Text("삭제"),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              child: Image.file(
+                                File(photo['photoPath']),
+                                fit: BoxFit.cover,
+                              ),
                             );
                           },
                         ),

@@ -26,7 +26,7 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   final LocationTracking _locationTracking = LocationTracking();
   final LocationService _locationService = LocationService();
-  final PathpointDatabaseHelper _pathDbHelper = PathpointDatabaseHelper();
+  final PathpointDatabaseHelper _pathdbHelper = PathpointDatabaseHelper();
   final TransportationDatabaseHelper _trandbHelper =
       TransportationDatabaseHelper();
   final InitialDatabaseHelper _initialDbHelper =
@@ -95,8 +95,12 @@ class _MainPageState extends State<MainPage> {
   }
 
   Future<void> _loadMapPins() async {
-    await _pathDbHelper.connect();
-    final pins = await _pathDbHelper.getPins(widget.travelId);
+    await _pathdbHelper.connect();
+    final pins = await _pathdbHelper.getPins(widget.travelId);
+
+    // 위젯이 여전히 트리 안에 있는지 확인
+    if (!mounted) return;
+
     setState(() {
       for (var pin in pins) {
         _mapPins.add(
@@ -114,11 +118,13 @@ class _MainPageState extends State<MainPage> {
 
   // 지도를 꾹 눌렀을 때 핀 추가
   void _onMapLongPress(LatLng position) async {
-    final newPinId = await _pathDbHelper.addPin(
+    final newPinId = await _pathdbHelper.addPin(
       travelId: widget.travelId,
       latitude: position.latitude,
       longitude: position.longitude,
     );
+
+    if (!mounted) return;
 
     setState(() {
       _mapPins.add(
@@ -170,7 +176,7 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _showPhotos(int pinId) async {
     try {
-      final photos = await _pathDbHelper.getPhotos(pinId); // 핀에 저장된 사진 불러오기
+      final photos = await _pathdbHelper.getPhotos(pinId); // 핀에 저장된 사진 불러오기
 
       if (photos.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +239,7 @@ class _MainPageState extends State<MainPage> {
     final XFile? photo = await _picker.pickImage(source: ImageSource.gallery);
 
     if (photo != null) {
-      await _pathDbHelper.addPhoto(pinId: pinId, photoPath: photo.path);
+      await _pathdbHelper.addPhoto(pinId: pinId, photoPath: photo.path);
       Navigator.pop(context); // BottomSheet 닫기
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("사진이 추가되었습니다.")),
@@ -243,7 +249,9 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _deletePin(int pinId) async {
     try {
-      await _pathDbHelper.deletePin(pinId); // DB에서 핀 삭제
+      await _pathdbHelper.deletePin(pinId); // DB에서 핀 삭제
+      if (!mounted) return;
+
       setState(() {
         _mapPins
             .removeWhere((marker) => marker.markerId.value == pinId.toString());
@@ -261,11 +269,13 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _loadSavedPolylines() async {
     try {
-      await _pathDbHelper.connect();
+      await _pathdbHelper.connect();
       final savedPolylinePoints =
-          await _pathDbHelper.getPolyline(widget.travelId);
+          await _pathdbHelper.getPolyline(widget.travelId);
 
       if (savedPolylinePoints.isNotEmpty) {
+        if (!mounted) return;
+
         setState(() {
           _savedPolylines.add(Polyline(
             polylineId: const PolylineId('savedPath'),
@@ -294,7 +304,7 @@ class _MainPageState extends State<MainPage> {
       ];
 
       // 병합된 Polyline 저장
-      await _pathDbHelper.upsertPolyline(widget.travelId, combinedPath);
+      await _pathdbHelper.upsertPolyline(widget.travelId, combinedPath);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Polyline 경로가 저장되었습니다.")),
@@ -331,6 +341,8 @@ class _MainPageState extends State<MainPage> {
             .addPath(LatLng(position.latitude, position.longitude));
       }
 
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
         _hasInitializedPosition = true;
@@ -343,6 +355,7 @@ class _MainPageState extends State<MainPage> {
 
   void _initializeTracking() {
     if (!_isTrackingActive) return;
+    if (!mounted) return;
 
     _locationTracking.initializeTracking((controller) {
       setState(() {}); // 실시간 경로 반영
@@ -356,6 +369,8 @@ class _MainPageState extends State<MainPage> {
     if (!_isTrackingActive || mode == 'Unknown') {
       return; // Start 버튼이 눌리지 않았거나 Unknown이면 무시
     }
+
+    if (!mounted) return;
 
     setState(() {
       if (!_transportationData.containsKey(mode)) {
@@ -378,11 +393,15 @@ class _MainPageState extends State<MainPage> {
     if (_isTrackingActive) {
       // 추적 중지 및 저장
       await _savePath();
+      if (!mounted) return;
+
       setState(() {
         _isTrackingActive = false;
       });
       _locationTracking.dispose();
     } else {
+      if (!mounted) return;
+
       // 추적 시작
       setState(() {
         _isTrackingActive = true;
@@ -527,7 +546,7 @@ class _MainPageState extends State<MainPage> {
   void dispose() {
     _isDisposed = true;
     _locationTracking.dispose();
-    _pathDbHelper.close();
+    _pathdbHelper.close();
     super.dispose();
   }
 }
