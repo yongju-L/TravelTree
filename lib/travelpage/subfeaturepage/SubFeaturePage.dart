@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:traveltree/travelpage/subfeaturepage/PhotoPage.dart';
 import 'package:traveltree/widgets/TravelNavigation.dart';
 import 'package:traveltree/travelpage/subfeaturepage/ExpenseManagementPage.dart';
 import 'package:traveltree/travelpage/subfeaturepage/ScheduleManagementPage.dart';
@@ -54,7 +55,12 @@ class SubFeaturePage extends StatelessWidget {
               context,
               label: '사진',
               onPressed: () {
-                // 사진 페이지 이동 구현 예정
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PhotoPage(travelId: travelId),
+                  ),
+                );
               },
             ),
           ],

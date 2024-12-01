@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:traveltree/helpers/InitialDatabaseHelper.dart';
 import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
 import 'package:traveltree/helpers/TransportationDatabaseHelper.dart';
 import 'package:traveltree/services/LocationService.dart';
@@ -26,6 +27,8 @@ class _MainPageState extends State<MainPage> {
   final PathpointDatabaseHelper _pathDbHelper = PathpointDatabaseHelper();
   final TransportationDatabaseHelper _trandbHelper =
       TransportationDatabaseHelper();
+  final InitialDatabaseHelper _initialDbHelper =
+      InitialDatabaseHelper(); // DB 헬퍼 추가
 
   bool _isLoading = true;
   bool _hasInitializedPosition = false;
@@ -39,7 +42,7 @@ class _MainPageState extends State<MainPage> {
   };
 
   LatLng _initialPosition = const LatLng(37.7749, -122.4194); // 기본값: 샌프란시스코
-  Set<Polyline> _savedPolylines = {}; // 저장된 polyline 데이터를 보관
+  final Set<Polyline> _savedPolylines = {}; // 저장된 polyline 데이터를 보관
 
   @override
   void initState() {
@@ -70,14 +73,16 @@ class _MainPageState extends State<MainPage> {
   Future<void> _setInitialPosition() async {
     try {
       Position position = await _locationService.getCurrentPosition();
+      if (!mounted) return; // 현재 위젯이 트리에 있는지 확인
       setState(() {
         _initialPosition = LatLng(position.latitude, position.longitude);
         _hasInitializedPosition = true; // 위치 초기화 완료
       });
     } catch (e) {
       print('초기 위치를 가져오는 데 실패했습니다: $e');
-      // 초기 위치를 가져오는 데 실패하면 기본값 유지
+      if (!mounted) return; // 현재 위젯이 트리에 있는지 확인
       setState(() {
+        // 초기 위치를 가져오는 데 실패하면 기본값 유지
         _hasInitializedPosition = true; // 기본 위치로 초기화 완료
       });
     }
@@ -132,6 +137,7 @@ class _MainPageState extends State<MainPage> {
 
   Future<void> _loadTransportationData() async {
     final data = await _trandbHelper.getTransportationData(widget.travelId);
+    if (!mounted) return; // 위젯이 트리에 있는지 확인
     setState(() {
       for (var entry in data) {
         _transportationData[entry['mode']] = {
@@ -214,21 +220,67 @@ class _MainPageState extends State<MainPage> {
     }
   }
 
-  void _showErrorDialog() {
+  Future<void> _finalizeTravel() async {
+    // 데이터베이스 연결 초기화
+    await _initialDbHelper.connect();
+
+    // DB에서 여행을 잠금 상태로 업데이트
+    await _initialDbHelper.lockTravel(widget.travelId);
+
+    // 현재 페이지 종료
     if (!mounted) return;
-    showDialog(
+    Navigator.pop(context);
+
+    // 사용자 알림
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("해당 여행이 최종 저장되었습니다.")),
+    );
+  }
+
+  Future<void> _showFinalizeDialog() async {
+    // 첫 번째 다이얼로그
+    final firstConfirmation = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('위치 가져오기 실패'),
-        content: const Text('현재 위치를 가져오는 데 실패했습니다. 다시 시도해주세요.'),
+        title: const Text('최종 저장'),
+        content: const Text('이 버튼을 누르면 더 이상 이 여행을 수정할 수 없습니다. 저장하시겠습니까?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('확인'),
           ),
         ],
       ),
     );
+
+    if (firstConfirmation != true) return;
+
+    // 두 번째 다이얼로그
+    final secondConfirmation = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('최종 확인'),
+        content: const Text('최종 저장 하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+
+    if (secondConfirmation == true) {
+      await _finalizeTravel();
+    }
   }
 
   @override
@@ -243,6 +295,10 @@ class _MainPageState extends State<MainPage> {
               TransportationModal.showTransportationModal(
                   context, widget.travelId); // travelId 전달
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _showFinalizeDialog,
           ),
         ],
       ),

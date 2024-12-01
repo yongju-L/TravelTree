@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:traveltree/travelpage/subfeaturepage/ExpenseManagementPage.dart';
+import 'package:traveltree/travelpage/subfeaturepage/PhotoPage.dart';
 import 'package:traveltree/travelpage/subfeaturepage/ScheduleManagementPage.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -54,7 +55,14 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.photo),
             title: const Text('사진'),
             onTap: () {
-              // 사진 페이지로 이동 구현 예정
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PhotoPage(
+                    travelId: travelId, // travelId 전달
+                  ),
+                ),
+              );
             },
           ),
         ],

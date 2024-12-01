@@ -27,7 +27,7 @@ class InitialDatabaseHelper {
     required String country,
     required DateTime startDate,
     required DateTime endDate,
-    required int userId, // user_id 추가
+    required int userId,
   }) async {
     if (_connection == null || _connection!.isClosed) {
       throw Exception('Database connection is not initialized.');
@@ -44,11 +44,11 @@ class InitialDatabaseHelper {
         'country': country,
         'start_date': startDate.toIso8601String(),
         'end_date': endDate.toIso8601String(),
-        'user_id': userId, // user_id 값 추가
+        'user_id': userId,
       },
     );
 
-    return result.first[0] as int; // 반환된 여행 ID
+    return result.first[0] as int;
   }
 
   // 여행 데이터 불러오기
@@ -59,13 +59,13 @@ class InitialDatabaseHelper {
 
     final result = await _connection!.query(
       '''
-      SELECT id, name, country, start_date, end_date
+      SELECT id, name, country, start_date, end_date, is_finalized
       FROM travel
       WHERE user_id = @user_id
       ORDER BY start_date ASC
       ''',
       substitutionValues: {
-        'user_id': userId, // user_id 조건 추가
+        'user_id': userId,
       },
     );
 
@@ -76,6 +76,7 @@ class InitialDatabaseHelper {
         'country': row[2],
         'start_date': row[3].toString(),
         'end_date': row[4].toString(),
+        'is_finalized': row[5] as bool,
       };
     }).toList();
   }
@@ -92,6 +93,25 @@ class InitialDatabaseHelper {
       ''',
       substitutionValues: {
         'id': id,
+      },
+    );
+  }
+
+  // 여행 잠금 (최종 저장) 처리
+  Future<void> lockTravel(int travelId) async {
+    // 데이터베이스 연결 상태 확인
+    if (_connection == null || _connection!.isClosed) {
+      await connect(); // 연결이 닫혀 있으면 다시 연결
+    }
+
+    await _connection!.query(
+      '''
+    UPDATE travel
+    SET is_finalized = TRUE, is_uploaded_to_sns = TRUE
+    WHERE id = @id
+    ''',
+      substitutionValues: {
+        'id': travelId,
       },
     );
   }

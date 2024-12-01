@@ -105,15 +105,22 @@ class _InitialPageState extends State<InitialPage> {
     );
   }
 
-  void _navigateToTravelPage(int travelId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MainPage(
-          travelId: travelId,
+  void _navigateToTravelPage(int travelId, bool? isFinalized) {
+    // isFinalized가 null 또는 true인 경우 이동하지 않음
+    if (isFinalized == true) {
+      // 최종 저장된 여행 클릭 시 알림 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('해당 여행은 최종 저장되었습니다.')),
+      );
+    } else {
+      // 수정 가능한 여행일 경우 MainPage로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => MainPage(travelId: travelId),
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -141,7 +148,7 @@ class _InitialPageState extends State<InitialPage> {
                           final trip = _trips[index];
                           return GestureDetector(
                             onTap: () => _navigateToTravelPage(
-                                trip['id']), // 클릭 시 여행 페이지로 이동
+                                trip['id'], trip['is_finalized'] ?? false),
                             onLongPress: () =>
                                 _showDeleteDialog(trip['id']), // 삭제 다이얼로그 호출
                             child: Card(
@@ -149,7 +156,16 @@ class _InitialPageState extends State<InitialPage> {
                                   vertical: 8, horizontal: 16),
                               child: ListTile(
                                 title: Text(trip['name']),
-                                subtitle: Text(trip['country']),
+                                subtitle: Text(
+                                  trip['is_finalized'] ?? false
+                                      ? '최종 저장됨'
+                                      : trip['country'],
+                                  style: TextStyle(
+                                    color: (trip['is_finalized'] ?? false)
+                                        ? Colors.green
+                                        : Colors.black,
+                                  ),
+                                ),
                                 trailing: Text(
                                   _formatDateRange(
                                       trip['start_date'], trip['end_date']),
