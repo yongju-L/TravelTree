@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
 import 'package:traveltree/widgets/ViewNavigation.dart';
 import 'ViewTransportationPage.dart';
+import 'dart:io';
 
 class ViewMainPage extends StatefulWidget {
   final int travelId;
@@ -57,6 +58,7 @@ class _ViewMainPageState extends State<ViewMainPage> {
         return Marker(
           markerId: MarkerId(marker['id'].toString()),
           position: LatLng(marker['latitude'], marker['longitude']),
+          onTap: () => _showPhotos(marker['id']), // 핀 클릭 시 사진 보기
         );
       }).toList();
     });
@@ -65,6 +67,43 @@ class _ViewMainPageState extends State<ViewMainPage> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  /// 핀에 저장된 사진 보기
+  Future<void> _showPhotos(int pinId) async {
+    try {
+      final photos = await _pathDbHelper.getPhotos(pinId); // 핀에 저장된 사진 불러오기
+
+      if (photos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이 핀에 저장된 사진이 없습니다.')),
+        );
+        return;
+      }
+
+      showModalBottomSheet(
+        context: context,
+        builder: (context) => ListView.builder(
+          shrinkWrap: true,
+          itemCount: photos.length,
+          itemBuilder: (context, index) {
+            final photo = photos[index];
+            return Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Image.file(
+                File(photo['photoPath']), // 사진 경로에서 파일 로드
+                fit: BoxFit.cover,
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      print('Error fetching photos: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('사진을 불러오는 중 오류가 발생했습니다.')),
+      );
+    }
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:traveltree/helpers/InitialDatabaseHelper.dart';
 import 'package:traveltree/helpers/PathpointDatabaseHelper.dart';
 import 'package:traveltree/helpers/TransportationDatabaseHelper.dart';
+import 'package:traveltree/initialpage/InitialPage.dart';
 import 'package:traveltree/services/LocationService.dart';
 import 'package:traveltree/services/LocationTracking.dart';
 import 'package:traveltree/widgets/TravelNavigation.dart';
@@ -13,10 +14,12 @@ import 'package:traveltree/widgets/TransportationModal.dart';
 
 class MainPage extends StatefulWidget {
   final int travelId; // 여행 고유 ID 추가
+  final int userId;
 
   const MainPage({
     super.key,
-    required this.travelId, // travelId를 필수 매개변수로 추가
+    required this.travelId,
+    required this.userId, // travelId를 필수 매개변수로 추가
   });
 
   @override
@@ -417,13 +420,19 @@ class _MainPageState extends State<MainPage> {
     // DB에서 여행을 잠금 상태로 업데이트
     await _initialDbHelper.lockTravel(widget.travelId);
 
-    // 현재 페이지 종료
-    if (!mounted) return;
-    Navigator.pop(context);
-
     // 사용자 알림
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("해당 여행이 최종 저장되었습니다.")),
+    );
+
+    // InitialPage로 이동 (MainPage 종료 및 초기화)
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InitialPage(userId: widget.userId),
+      ),
+      (Route<dynamic> route) => false, // 모든 이전 라우트를 제거
     );
   }
 
@@ -538,6 +547,7 @@ class _MainPageState extends State<MainPage> {
         context,
         0,
         widget.travelId, // travelId 전달
+        widget.userId,
       ),
     );
   }

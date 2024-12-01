@@ -6,10 +6,12 @@ import 'package:traveltree/travelpage/subfeaturepage/ScheduleManagementPage.dart
 
 class SubFeaturePage extends StatelessWidget {
   final int travelId; // travelId만 받도록 수정
+  final int userId;
 
   const SubFeaturePage({
     super.key,
     required this.travelId,
+    required this.userId,
   });
 
   @override
@@ -69,7 +71,8 @@ class SubFeaturePage extends StatelessWidget {
       bottomNavigationBar: buildBottomNavigationBar(
         context,
         1,
-        travelId, // travelId 전달
+        travelId,
+        userId,
       ),
     );
   }

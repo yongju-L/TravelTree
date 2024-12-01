@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:traveltree/travelpage/mainpage/MainPage.dart';
 import 'package:traveltree/travelpage/subfeaturepage/SubFeaturePage.dart';
 
-void navigateToPage(BuildContext context, int index, {required int travelId}) {
+void navigateToPage(
+  BuildContext context,
+  int index, {
+  required int travelId,
+  required int userId, // userId 추가
+}) {
   Widget page;
   switch (index) {
     case 0:
-      // MainPage에 travelId만 전달
-      page = MainPage(travelId: travelId);
+      // MainPage에 travelId와 userId 전달
+      page = MainPage(travelId: travelId, userId: userId);
       break;
     case 1:
-      // SubFeaturePage에 travelId만 전달
-      page = SubFeaturePage(travelId: travelId);
+      // SubFeaturePage에 travelId와 userId 전달
+      page = SubFeaturePage(travelId: travelId, userId: userId);
       break;
     default:
       return;
@@ -33,15 +38,19 @@ void navigateToPage(BuildContext context, int index, {required int travelId}) {
 }
 
 BottomNavigationBar buildBottomNavigationBar(
-    BuildContext context, int currentIndex, int travelId) {
+    BuildContext context, int currentIndex, int travelId, int userId) {
   return BottomNavigationBar(
     backgroundColor: Colors.white,
     selectedItemColor: Colors.black,
     unselectedItemColor: Colors.grey,
     iconSize: 30,
     currentIndex: currentIndex,
-    // travelId만 전달
-    onTap: (index) => navigateToPage(context, index, travelId: travelId),
+    onTap: (index) => navigateToPage(
+      context,
+      index,
+      travelId: travelId, // travelId 전달
+      userId: userId, // userId 추가로 전달
+    ),
     items: const [
       BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Main'),
       BottomNavigationBarItem(

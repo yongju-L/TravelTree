@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:traveltree/helpers/InitialDatabaseHelper.dart';
 import 'package:traveltree/travelpage/mainpage/MainPage.dart';
+import 'package:traveltree/viewpages/ViewMainPage.dart';
 import 'package:traveltree/widgets/AddTripModal.dart';
 import 'package:traveltree/widgets/InitialNavigation.dart';
 import 'package:traveltree/loginpage/LoginPage.dart';
@@ -106,18 +107,21 @@ class _InitialPageState extends State<InitialPage> {
   }
 
   void _navigateToTravelPage(int travelId, bool? isFinalized) {
-    // isFinalized가 null 또는 true인 경우 이동하지 않음
     if (isFinalized == true) {
-      // 최종 저장된 여행 클릭 시 알림 표시
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('해당 여행은 최종 저장되었습니다.')),
+      // 최종 저장된 여행 클릭 시 ViewMainPage로 이동
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ViewMainPage(travelId: travelId),
+        ),
       );
     } else {
       // 수정 가능한 여행일 경우 MainPage로 이동
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => MainPage(travelId: travelId),
+          builder: (context) =>
+              MainPage(travelId: travelId, userId: widget.userId),
         ),
       );
     }

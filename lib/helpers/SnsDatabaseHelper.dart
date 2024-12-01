@@ -166,4 +166,28 @@ class SnsDatabaseHelper {
       };
     }).toList();
   }
+
+  /// SNS 랭킹 데이터 가져오기
+  Future<List<Map<String, dynamic>>> getRankedTravels() async {
+    if (_connection == null || _connection!.isClosed) {
+      throw Exception('Database connection is not initialized.');
+    }
+
+    final result = await _connection!.query('''
+    SELECT 
+      username,
+      travel_name,
+      total_likes
+    FROM sns_info
+    ORDER BY total_likes DESC
+    ''');
+
+    return result.map((row) {
+      return {
+        'username': row[0],
+        'travel_name': row[1],
+        'total_likes': row[2] ?? 0,
+      };
+    }).toList();
+  }
 }

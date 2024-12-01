@@ -223,7 +223,7 @@ class _SnsPageState extends State<SnsPage> {
         backgroundColor: Colors.teal,
       ),
       bottomNavigationBar: buildInitialBottomNavigationBar(
-          context, 2, widget.userId), // 현재 Index는 2
+          context, 1, widget.userId), // 현재 Index는 2
     );
   }
 }
